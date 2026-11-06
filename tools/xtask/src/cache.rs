@@ -260,6 +260,9 @@ fn extract(archive: &Path, dir: &Path, format: &str) -> Result<()> {
             let count = links.len();
             let mut pending = Vec::new();
             for (destination, target) in links {
+                // On Unix, canonicalize("missing/../file") fails even when file
+                // exists. ZIPs need not include their link's parent directory.
+                fs::create_dir_all(destination.parent().context("ZIP link parent")?)?;
                 let target = destination
                     .parent()
                     .context("ZIP link parent")?
@@ -270,7 +273,6 @@ fn extract(archive: &Path, dir: &Path, format: &str) -> Result<()> {
                             target.starts_with(&root) && target.is_file(),
                             "ZIP link escapes cache or targets a directory"
                         );
-                        fs::create_dir_all(destination.parent().context("ZIP link parent")?)?;
                         fs::copy(target, destination)?;
                     }
                     Err(e) if e.kind() == std::io::ErrorKind::NotFound => {

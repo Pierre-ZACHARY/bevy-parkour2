@@ -12,6 +12,8 @@ Native targets retain their default compilers. Build cache keys use the runner
 OS, avoiding the comma in the combined `linux-x64,webgpu` target argument.
 Main builds queue behind the current run so a new push does not discard a cold
 Bevy compilation before its cache is saved. Superseded pull request runs cancel.
+The vendored `iyes_perf_ui` dependency is excluded from automatic workspace
+membership; its incomplete upstream documentation snippets are not game doctests.
 
 Cargo uses the project compiler cache by default, including independent crates
 and editor builds. Bootstrap it once with `pwsh -File tools/setup_cache.ps1`;

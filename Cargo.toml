@@ -10,7 +10,7 @@ publish = false
 # on their own.
 [workspace]
 members = ["crates/game_telemetry", "crates/camera_controller", "crates/character_animation", "crates/character_controller", "crates/ninja_character", "crates/ninja_hair", "crates/pose_preview", "crates/skeleton_retarget", "tools/xtask", "tools/asset-export", "tools/basisu-prepare", "tools/basisu-prototype"]
-exclude = ["crates/bevy_noodle", "crates/bevy_noodle_jackdaw", "crates/bevy_noodle_jackdaw_editor"]
+exclude = ["crates/bevy_noodle", "crates/bevy_noodle_jackdaw", "crates/bevy_noodle_jackdaw_editor", "vendor/iyes_perf_ui"]
 
 [features]
 # The Jackdaw editor builds the plain package, so defaults are what it gets.
