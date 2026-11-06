@@ -40,7 +40,7 @@ pub fn register(
     });
     let token = ctx.register_resource(RegisterRequest {
         type_: "pulumiservice:index:AccessToken".into(),
-        name: "github-infrastructure".into(),
+        name: "github-infrastructure-v2".into(),
         custom: true,
         version: "1.7.0".into(),
         inputs: vec![
@@ -60,6 +60,8 @@ pub fn register(
         options: ResourceOptions {
             provider: Some(provider),
             protect: Some(true),
+            // Untyped Rust registration must mark generated credentials itself.
+            additional_secret_outputs: vec!["value".into()],
             ..Default::default()
         },
         ..Default::default()
