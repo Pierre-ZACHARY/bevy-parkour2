@@ -1,0 +1,19 @@
+name: bevy-parkour2-ovh-bootstrap
+description: Owner-only OVH runner identity and scoped IAM bootstrap
+runtime: rust
+main: ..
+backend:
+  url: https://api.pulumi.com
+packages:
+  ovh:
+    source: terraform-provider
+    version: 1.1.0
+    parameters:
+      - ovh/ovh
+      - 2.24.0
+  infisical:
+    source: terraform-provider
+    version: 1.1.0
+    parameters:
+      - Infisical/infisical
+      - 0.19.36

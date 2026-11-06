@@ -54,6 +54,9 @@ jobs:
         if: inputs.operation == 'preview'
         shell: pwsh
         run: ./infra/pulumi.ps1 preview --stack Pierre-ZACHARY/bevy-parkour2-infra/dev --non-interactive --diff
+      - name: Verify scoped OVH runner access
+        shell: pwsh
+        run: ./infra/verify-ovh-access.ps1
       - name: Apply infrastructure
         if: inputs.operation == 'up'
         shell: pwsh

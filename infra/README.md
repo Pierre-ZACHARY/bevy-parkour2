@@ -85,6 +85,47 @@ the provider. Pulumi Cloud stores provider secrets encrypted in the state.
 Sensitive client/cache outputs are marked secret. Do not add `.env`, stack YAML files, state
 exports or populated credential examples to Git, even encrypted stack variables.
 
+## OVH runner identity
+
+The operational stack always uses OAuth2 (`OVH_CLIENT_ID`, `OVH_CLIENT_SECRET`),
+locally and on GitHub. Its existing provider/resource identities are preserved;
+the migration updates provider credentials without replacing the bucket or users.
+GitHub OIDC retrieves the two credentials from the private Infisical infra project.
+The original IP-restricted OVH application/consumer credentials are retained for
+the owner-only stack `Pierre-ZACHARY/bevy-parkour2-ovh-bootstrap/dev`.
+
+Both stacks run the same pinned Rust program. `ovh-bootstrap/Pulumi.yaml` selects
+the bootstrap project; the program branches on Pulumi's project name. That stack
+manages one protected OAuth2 client, one protected IAM policy and two protected
+Infisical secrets. It has no GitHub workflow and the wrapper rejects its use from
+GitHub Actions. IAM administration requires the owner login from an allowed IP.
+There is no auth-validation bypass in either provider.
+
+```powershell
+# Existing stack: restore its ignored settings from Pulumi Cloud on a new clone.
+.\infra\pulumi.ps1 -OvhBootstrap config refresh --force --stack Pierre-ZACHARY/bevy-parkour2-ovh-bootstrap/dev
+.\infra\pulumi.ps1 -OvhBootstrap preview --stack Pierre-ZACHARY/bevy-parkour2-ovh-bootstrap/dev --diff
+# Review and apply locally when changing/rotating the runner identity.
+.\infra\pulumi.ps1 -OvhBootstrap up --stack Pierre-ZACHARY/bevy-parkour2-ovh-bootstrap/dev
+```
+
+Its ignored stack config needs `projectId` and optionally `ovhEndpoint=ovh-eu`.
+The ten allowed IAM actions come directly from OVH's `cloud.json` schema and are
+scoped to this project's URN. They permit existing bucket settings and S3 key/user
+policy administration throughout the project. They exclude compute, IAM/account
+administration, user creation/role changes, and direct bucket/object deletion.
+Managing S3 secrets/policies can still confer read/write/delete access through
+S3; this is a storage administrator, separate from the read-only build credential.
+The account can rotate S3 keys; changing users' OpenStack roles requires
+an explicit owner change rather than project-admin privileges on hosted runners.
+
+`verify-ovh-access.ps1` exercises authentication/bucket reads and checks denials
+for account, compute and IAM access from the actual runner. OAuth access tokens
+exist only in memory. To rotate a compromised service account, replace it in the
+owner stack (review its deletion protection), publish the new credentials and
+revoke the old account/policy; then rerun the operational preview. No credential
+or stack YAML is committed, including encrypted stack config.
+
 ## Existing bucket adoption
 
 The program imports the existing bucket using `<projectId>/<region>/<bucketName>`

@@ -95,7 +95,21 @@ are never uploaded by this workflow. Distribution of built games requires a
 separate publication policy consistent with the vendor licenses.
 
 Infrastructure is manual, limited to main and the `infrastructure` environment.
-Its OVH API calls also depend on the API key's IP allowlist: GitHub-hosted runners
-have changing addresses. Use an allowed fixed-egress runner or update that
-allowlist deliberately; this setup does not relax the existing restriction.
+OVH uses a dedicated OAuth2 service account provisioned by the separate
+`bevy-parkour2-ovh-bootstrap/dev` Pulumi stack. Its credentials are managed in
+the private Infisical infrastructure project as `OVH_CLIENT_ID` and
+`OVH_CLIENT_SECRET`. Only these OVH variables are exported to the job environment;
+the original three application/consumer credentials are no longer injected.
+The existing owner's API key keeps its IP allowlist unchanged.
+
+The runner IAM policy grants ten explicit actions in this Public Cloud project:
+read/update storage configuration, read existing users/OpenRC, manage S3 keys and
+S3 user policies. OVH scopes these actions to the project, so they cover its other
+buckets/users too. There is no account/IAM/compute permission, user creation or
+role change, nor direct object deletion or bucket creation/deletion. Access to
+S3 secrets and policies is storage administration: it can confer read/write/delete
+access through S3 itself. New users, new
+buckets and IAM permission changes require an owner bootstrap review. The workflow
+checks real bucket access and HTTP 403 denials for account, compute and IAM access.
+See [owner bootstrap and rotation](../infra/README.md#ovh-runner-identity).
 Sonar upload remains disabled until a dedicated analysis credential is provided.

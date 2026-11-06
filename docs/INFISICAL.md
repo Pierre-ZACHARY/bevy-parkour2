@@ -105,7 +105,13 @@ build and official tag environments, rather than a general repository secret.
 The generated Pulumi Cloud token and provisioning GitHub PAT belong to GitHub's
 main-only infrastructure environment. The GitHub PAT is not stored in Infisical.
 The OVH/Sentry/Sonar administrator credentials remain in Infisical. Infrastructure
-runs only on manual dispatch of main; OVH's existing IP restriction still applies.
+runs only on manual dispatch of main. Its OVH provider now uses the dedicated
+`OVH_CLIENT_ID` / `OVH_CLIENT_SECRET`, generated and synchronized by the owner-only
+OVH bootstrap stack. The original OVH application/consumer credentials are no
+longer exported into runner environments; their IP restrictions remain unchanged.
+The infra identity's existing project Viewer membership still permits reading
+that project's other secrets; filtering exported variables is not folder RBAC.
+The original OVH credential remains protected by its separate IP restriction.
 
 After successful up, infra/pulumi.ps1 synchronizes only the three managed Sentry
 client values to build /app. Its sync script can also be called after rotation;

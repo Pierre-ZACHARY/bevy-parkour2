@@ -25,4 +25,9 @@ node_modules/
 /infra/.tools/
 /infra/sdks/
 /infra/target/
+/infra/ovh-bootstrap/Pulumi.*.yaml
+/infra/ovh-bootstrap/Pulumi.*.yml
+/infra/ovh-bootstrap/Pulumi.*.yaml.*
+/infra/ovh-bootstrap/Pulumi.*.yml.*
+/infra/ovh-bootstrap/.pulumi/
 /.compiler-cache/

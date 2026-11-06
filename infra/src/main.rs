@@ -6,6 +6,7 @@ mod github;
 mod github_ci;
 mod github_credentials;
 mod infisical;
+mod ovh_bootstrap;
 mod sentry;
 mod sonar;
 
@@ -31,6 +32,9 @@ fn value(text: impl Into<String>) -> Output<PropertyValue> {
 fn main() {
     pulumi::run(|ctx| async move {
         let config = ctx.config();
+        if ctx.project() == "bevy-parkour2-ovh-bootstrap" {
+            return ovh_bootstrap::register(&ctx);
+        }
         let project = config.get("projectId").ok_or_else(|| {
             pulumi::Error::new("set projectId in the ignored stack configuration")
         })?;
@@ -44,9 +48,8 @@ fn main() {
             value(config.get("ovhEndpoint").unwrap_or_else(|| "ovh-eu".into())),
         )];
         for (key, variable) in [
-            ("applicationKey", "OVH_APPLICATION_KEY"),
-            ("applicationSecret", "OVH_APPLICATION_SECRET"),
-            ("consumerKey", "OVH_CONSUMER_KEY"),
+            ("clientId", "OVH_CLIENT_ID"),
+            ("clientSecret", "OVH_CLIENT_SECRET"),
         ] {
             let secret = std::env::var(variable).map_err(|_| {
                 pulumi::Error::new(format!("missing {variable}; use infra/pulumi.ps1"))

@@ -1,10 +1,21 @@
 # Scope credentials, backend and plugin PATH to the Pulumi child process.
 # No secret values are written to the console or supplied in command arguments.
 [CmdletBinding()]
-param([Parameter(ValueFromRemainingArguments = $true)][string[]] $PulumiArgs)
+param(
+    [switch] $OvhBootstrap,
+    [Parameter(ValueFromRemainingArguments = $true)][string[]] $PulumiArgs
+)
 $ErrorActionPreference = 'Stop'
-$names = @('OVH_APPLICATION_KEY','OVH_APPLICATION_SECRET','OVH_CONSUMER_KEY','SENTRY_AUTH_TOKEN','SONAR_TOKEN')
-$optionalNames = @('SENTRY_RELEASE_TOKEN')
+$workingDirectory = $PSScriptRoot
+if ($OvhBootstrap) {
+    if ($env:GITHUB_ACTIONS -eq 'true') { throw 'OVH IAM bootstrap requires the local owner and its restricted IP.' }
+    $workingDirectory = Join-Path $PSScriptRoot 'ovh-bootstrap'
+    $names = @('OVH_APPLICATION_KEY','OVH_APPLICATION_SECRET','OVH_CONSUMER_KEY')
+    $optionalNames = @()
+} else {
+    $names = @('OVH_CLIENT_ID','OVH_CLIENT_SECRET','SENTRY_AUTH_TOKEN','SONAR_TOKEN')
+    $optionalNames = @('SENTRY_RELEASE_TOKEN')
+}
 $saved = @{}
 foreach ($name in ($names + $optionalNames + @('PATH','PULUMI_BACKEND_URL','INFISICAL_TOKEN','INFISICAL_AUTH_METHOD'))) {
     $saved[$name] = [Environment]::GetEnvironmentVariable($name, 'Process')
@@ -32,9 +43,9 @@ try {
     $env:PULUMI_BACKEND_URL = 'https://api.pulumi.com'
     $env:PATH = (Join-Path $PSScriptRoot '.tools\bin') + [IO.Path]::PathSeparator + $env:PATH
     if (-not $PulumiArgs) { $PulumiArgs = @('preview') }
-    & pulumi --cwd $PSScriptRoot @PulumiArgs
+    & pulumi --cwd $workingDirectory @PulumiArgs
     if ($LASTEXITCODE -ne 0) { throw "Pulumi exited with code $LASTEXITCODE" }
-    if ($PulumiArgs[0] -eq 'up' -and $PulumiArgs -notcontains '--preview-only') {
+    if (-not $OvhBootstrap -and $PulumiArgs[0] -eq 'up' -and $PulumiArgs -notcontains '--preview-only') {
         $stack = ''
         for ($i=0; $i -lt $PulumiArgs.Count; $i++) {
             if ($PulumiArgs[$i] -in @('--stack','-s')) { $stack = $PulumiArgs[$i+1] }
