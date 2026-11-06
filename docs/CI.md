@@ -5,6 +5,14 @@ runners, checkout, caches, credentials and artifact storage. The same commands
 run locally. Third-party compilers, nextest, LLVM and packaging tools still do
 their specialized work.
 
+The Linux x64/WebGPU job installs Clang 22 from LLVM's signed Noble repository,
+verifies the archive key fingerprint, and selects that compiler for wasm C/C++.
+Basis's vendored libc++ needs newer builtins than the runner's default Clang.
+Native targets retain their default compilers. Build cache keys use the runner
+OS, avoiding the comma in the combined `linux-x64,webgpu` target argument.
+Main builds queue behind the current run so a new push does not discard a cold
+Bevy compilation before its cache is saved. Superseded pull request runs cancel.
+
 Cargo uses the project compiler cache by default, including independent crates
 and editor builds. Bootstrap it once with `pwsh -File tools/setup_cache.ps1`;
 the workflow and VS Code launch tasks do this automatically. Trusted CI jobs
