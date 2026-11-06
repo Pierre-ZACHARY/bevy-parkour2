@@ -17,10 +17,16 @@ if ($OvhBootstrap) {
     $optionalNames = @('SENTRY_RELEASE_TOKEN')
 }
 $saved = @{}
-foreach ($name in ($names + $optionalNames + @('PATH','PULUMI_BACKEND_URL','INFISICAL_TOKEN','INFISICAL_AUTH_METHOD'))) {
+$authNames = @('OVH_APPLICATION_KEY','OVH_APPLICATION_SECRET','OVH_CONSUMER_KEY','OVH_CLIENT_ID','OVH_CLIENT_SECRET','OVH_ACCESS_TOKEN','OVH_PROFILE')
+foreach ($name in ($names + $optionalNames + $authNames + @('PATH','PULUMI_BACKEND_URL','INFISICAL_TOKEN','INFISICAL_AUTH_METHOD'))) {
     $saved[$name] = [Environment]::GetEnvironmentVariable($name, 'Process')
 }
 try {
+    # The provider also reads ambient OVH variables. Avoid an inherited OAuth
+    # or access token silently overriding the owner bootstrap's restricted key.
+    foreach ($name in ($authNames | Where-Object { $_ -notin $names })) {
+        [Environment]::SetEnvironmentVariable($name, $null, 'Process')
+    }
     if (-not $PulumiArgs) { $PulumiArgs = @('preview') }
     # Read-only output/config commands use the existing Pulumi login alone.
     $missing = @($names | Where-Object { -not [Environment]::GetEnvironmentVariable($_, 'Process') })
