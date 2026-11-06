@@ -1,0 +1,328 @@
+bevy_noodle_jackdaw::model::FlowGraph {
+    nodes: [
+        bevy_noodle_jackdaw::model::FlowNode {
+            id: "look",
+            kind: "leafwing/CameraAction::Look",
+            title: "Look",
+            position: glam::Vec2 {
+                x: 40.0,
+                y: 40.0,
+            },
+            inputs: [],
+            outputs: [
+                bevy_noodle_jackdaw::model::PortDef {
+                    name: "x",
+                    kind: bevy_noodle_jackdaw::model::PortKind::Float,
+                    value: core::option::Option::None,
+                },
+                bevy_noodle_jackdaw::model::PortDef {
+                    name: "y",
+                    kind: bevy_noodle_jackdaw::model::PortKind::Float,
+                    value: core::option::Option::None,
+                },
+                bevy_noodle_jackdaw::model::PortDef {
+                    name: "vector",
+                    kind: bevy_noodle_jackdaw::model::PortKind::Vec2,
+                    value: core::option::Option::None,
+                },
+            ],
+            graph: core::option::Option::None,
+            samples: [],
+        },
+        bevy_noodle_jackdaw::model::FlowNode {
+            id: "look_stick",
+            kind: "leafwing/CameraAction::LookStick",
+            title: "LookStick",
+            position: glam::Vec2 {
+                x: 40.0,
+                y: 200.0,
+            },
+            inputs: [],
+            outputs: [
+                bevy_noodle_jackdaw::model::PortDef {
+                    name: "x",
+                    kind: bevy_noodle_jackdaw::model::PortKind::Float,
+                    value: core::option::Option::None,
+                },
+                bevy_noodle_jackdaw::model::PortDef {
+                    name: "y",
+                    kind: bevy_noodle_jackdaw::model::PortKind::Float,
+                    value: core::option::Option::None,
+                },
+                bevy_noodle_jackdaw::model::PortDef {
+                    name: "vector",
+                    kind: bevy_noodle_jackdaw::model::PortKind::Vec2,
+                    value: core::option::Option::None,
+                },
+            ],
+            graph: core::option::Option::None,
+            samples: [],
+        },
+        bevy_noodle_jackdaw::model::FlowNode {
+            id: "free_look",
+            kind: "leafwing/CameraAction::FreeLook",
+            title: "FreeLook",
+            position: glam::Vec2 {
+                x: 40.0,
+                y: 360.0,
+            },
+            inputs: [],
+            outputs: [
+                bevy_noodle_jackdaw::model::PortDef {
+                    name: "pressed",
+                    kind: bevy_noodle_jackdaw::model::PortKind::Bool,
+                    value: core::option::Option::None,
+                },
+            ],
+            graph: core::option::Option::None,
+            samples: [],
+        },
+        bevy_noodle_jackdaw::model::FlowNode {
+            id: "third_person",
+            kind: "camera/third_person",
+            title: "Third Person",
+            position: glam::Vec2 {
+                x: 320.0,
+                y: 40.0,
+            },
+            inputs: [
+                bevy_noodle_jackdaw::model::PortDef {
+                    name: "target",
+                    kind: bevy_noodle_jackdaw::model::PortKind::Entity,
+                    value: core::option::Option::None,
+                },
+                bevy_noodle_jackdaw::model::PortDef {
+                    name: "bone",
+                    kind: bevy_noodle_jackdaw::model::PortKind::Entity,
+                    value: core::option::Option::None,
+                },
+                bevy_noodle_jackdaw::model::PortDef {
+                    name: "offset",
+                    kind: bevy_noodle_jackdaw::model::PortKind::Vec3,
+                    value: core::option::Option::Some(bevy_noodle_jackdaw::model::FlowValue::Vec3(glam::Vec3 { x: 0.0, y: 0.550000011920929, z: 0.0 })),
+                },
+                bevy_noodle_jackdaw::model::PortDef {
+                    name: "shoulder",
+                    kind: bevy_noodle_jackdaw::model::PortKind::Vec3,
+                    value: core::option::Option::Some(bevy_noodle_jackdaw::model::FlowValue::Vec3(glam::Vec3 { x: 0.5, y: 0.15000000596046448, z: 0.0 })),
+                },
+                bevy_noodle_jackdaw::model::PortDef {
+                    name: "distance",
+                    kind: bevy_noodle_jackdaw::model::PortKind::Float,
+                    value: core::option::Option::Some(bevy_noodle_jackdaw::model::FlowValue::Float(2.200000047683716)),
+                },
+                bevy_noodle_jackdaw::model::PortDef {
+                    name: "look",
+                    kind: bevy_noodle_jackdaw::model::PortKind::Vec2,
+                    value: core::option::Option::None,
+                },
+                bevy_noodle_jackdaw::model::PortDef {
+                    name: "look_stick",
+                    kind: bevy_noodle_jackdaw::model::PortKind::Vec2,
+                    value: core::option::Option::None,
+                },
+                bevy_noodle_jackdaw::model::PortDef {
+                    name: "free_look",
+                    kind: bevy_noodle_jackdaw::model::PortKind::Bool,
+                    value: core::option::Option::None,
+                },
+                bevy_noodle_jackdaw::model::PortDef {
+                    name: "sensitivity",
+                    kind: bevy_noodle_jackdaw::model::PortKind::Float,
+                    value: core::option::Option::Some(bevy_noodle_jackdaw::model::FlowValue::Float(0.003000000026077032)),
+                },
+                bevy_noodle_jackdaw::model::PortDef {
+                    name: "stick_speed",
+                    kind: bevy_noodle_jackdaw::model::PortKind::Float,
+                    value: core::option::Option::Some(bevy_noodle_jackdaw::model::FlowValue::Float(3.0)),
+                },
+                bevy_noodle_jackdaw::model::PortDef {
+                    name: "min_pitch",
+                    kind: bevy_noodle_jackdaw::model::PortKind::Float,
+                    value: core::option::Option::Some(bevy_noodle_jackdaw::model::FlowValue::Float(-60.0)),
+                },
+                bevy_noodle_jackdaw::model::PortDef {
+                    name: "max_pitch",
+                    kind: bevy_noodle_jackdaw::model::PortKind::Float,
+                    value: core::option::Option::Some(bevy_noodle_jackdaw::model::FlowValue::Float(70.0)),
+                },
+                bevy_noodle_jackdaw::model::PortDef {
+                    name: "recenter",
+                    kind: bevy_noodle_jackdaw::model::PortKind::Float,
+                    value: core::option::Option::Some(bevy_noodle_jackdaw::model::FlowValue::Float(0.30000001192092896)),
+                },
+            ],
+            outputs: [],
+            graph: core::option::Option::None,
+            samples: [],
+        },
+        bevy_noodle_jackdaw::model::FlowNode {
+            id: "switch_key",
+            kind: "leafwing/CameraAction::Switch",
+            title: "Switch",
+            position: glam::Vec2 {
+                x: 40.0,
+                y: 480.0,
+            },
+            inputs: [],
+            outputs: [
+                bevy_noodle_jackdaw::model::PortDef {
+                    name: "pressed",
+                    kind: bevy_noodle_jackdaw::model::PortKind::Bool,
+                    value: core::option::Option::None,
+                },
+            ],
+            graph: core::option::Option::None,
+            samples: [],
+        },
+        bevy_noodle_jackdaw::model::FlowNode {
+            id: "switch",
+            kind: "camera/switch",
+            title: "Switch Camera",
+            position: glam::Vec2 {
+                x: 320.0,
+                y: 480.0,
+            },
+            inputs: [
+                bevy_noodle_jackdaw::model::PortDef {
+                    name: "pressed",
+                    kind: bevy_noodle_jackdaw::model::PortKind::Bool,
+                    value: core::option::Option::None,
+                },
+            ],
+            outputs: [],
+            graph: core::option::Option::None,
+            samples: [],
+        },
+        bevy_noodle_jackdaw::model::FlowNode {
+            id: "entity",
+            kind: "core/entity",
+            title: "Entity",
+            position: glam::Vec2 {
+                x: -480.0,
+                y: -60.0,
+            },
+            inputs: [
+                bevy_noodle_jackdaw::model::PortDef {
+                    name: "name",
+                    kind: bevy_noodle_jackdaw::model::PortKind::Text,
+                    value: core::option::Option::Some(bevy_noodle_jackdaw::model::FlowValue::Text("Player")),
+                },
+            ],
+            outputs: [
+                bevy_noodle_jackdaw::model::PortDef {
+                    name: "entity",
+                    kind: bevy_noodle_jackdaw::model::PortKind::Entity,
+                    value: core::option::Option::None,
+                },
+            ],
+            graph: core::option::Option::None,
+            samples: [],
+        },
+        bevy_noodle_jackdaw::model::FlowNode {
+            id: "skeleton",
+            kind: "core/skeleton",
+            title: "Skeleton",
+            position: glam::Vec2 {
+                x: -220.0,
+                y: -140.0,
+            },
+            inputs: [
+                bevy_noodle_jackdaw::model::PortDef {
+                    name: "entity",
+                    kind: bevy_noodle_jackdaw::model::PortKind::Entity,
+                    value: core::option::Option::None,
+                },
+            ],
+            outputs: [
+                bevy_noodle_jackdaw::model::PortDef {
+                    name: "skeleton",
+                    kind: bevy_noodle_jackdaw::model::PortKind::Entity,
+                    value: core::option::Option::None,
+                },
+            ],
+            graph: core::option::Option::None,
+            samples: [],
+        },
+        bevy_noodle_jackdaw::model::FlowNode {
+            id: "bone",
+            kind: "core/bone",
+            title: "Bone",
+            position: glam::Vec2 {
+                x: 40.0,
+                y: -140.0,
+            },
+            inputs: [
+                bevy_noodle_jackdaw::model::PortDef {
+                    name: "skeleton",
+                    kind: bevy_noodle_jackdaw::model::PortKind::Entity,
+                    value: core::option::Option::None,
+                },
+                bevy_noodle_jackdaw::model::PortDef {
+                    name: "name",
+                    kind: bevy_noodle_jackdaw::model::PortKind::Text,
+                    value: core::option::Option::None,
+                },
+            ],
+            outputs: [
+                bevy_noodle_jackdaw::model::PortDef {
+                    name: "bone",
+                    kind: bevy_noodle_jackdaw::model::PortKind::Entity,
+                    value: core::option::Option::None,
+                },
+            ],
+            graph: core::option::Option::None,
+            samples: [],
+        },
+    ],
+    links: [
+        bevy_noodle_jackdaw::model::FlowLink {
+            from: "entity",
+            output: "entity",
+            to: "third_person",
+            input: "target",
+        },
+        bevy_noodle_jackdaw::model::FlowLink {
+            from: "entity",
+            output: "entity",
+            to: "skeleton",
+            input: "entity",
+        },
+        bevy_noodle_jackdaw::model::FlowLink {
+            from: "skeleton",
+            output: "skeleton",
+            to: "bone",
+            input: "skeleton",
+        },
+        bevy_noodle_jackdaw::model::FlowLink {
+            from: "bone",
+            output: "bone",
+            to: "third_person",
+            input: "bone",
+        },
+        bevy_noodle_jackdaw::model::FlowLink {
+            from: "look",
+            output: "vector",
+            to: "third_person",
+            input: "look",
+        },
+        bevy_noodle_jackdaw::model::FlowLink {
+            from: "look_stick",
+            output: "vector",
+            to: "third_person",
+            input: "look_stick",
+        },
+        bevy_noodle_jackdaw::model::FlowLink {
+            from: "free_look",
+            output: "pressed",
+            to: "third_person",
+            input: "free_look",
+        },
+        bevy_noodle_jackdaw::model::FlowLink {
+            from: "switch_key",
+            output: "pressed",
+            to: "switch",
+            input: "pressed",
+        },
+    ],
+}

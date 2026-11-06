@@ -1,0 +1,11 @@
+<!doctype html><html lang="en"><meta charset="utf-8"><title>Basis WebGPU prototype</title>
+<style>body{margin:0;background:#252b35;color:white;font:14px system-ui}canvas{width:1000px;height:800px;max-width:100%}header{padding:12px}pre{white-space:pre-wrap;max-height:300px;overflow:auto}#results{padding:12px}</style>
+<header>Left: source PNG · Right: Basis UASTC · Top: sRGB + alpha · Bottom: linear data<br>Jackdaw variant: extra small panel loaded from scene.bsb. <a href="?missing">Missing</a> · <a href="?corrupt">Corrupt</a> · <a href="./">Valid</a></header>
+<pre id="results">Loading…</pre>
+<script type="module">
+const result = document.querySelector('#results');
+const report = () => fetch('/__result', {method:'POST',headers:{'Content-Type':'application/json'},body:result.textContent});
+new MutationObserver(() => {if(result.dataset.status && !result.dataset.sent){result.dataset.sent='true';report().catch(console.error);}}).observe(result,{attributes:true});
+try {if(!navigator.gpu || !await navigator.gpu.requestAdapter())throw new Error('WebGPU adapter unavailable');const {default:init}=await import('./prototype.js');await init();}
+catch(e){result.textContent=JSON.stringify({status:'FAIL',case:location.search.slice(1),error:String(e)});result.dataset.status='FAIL';console.error(e);}
+</script></html>

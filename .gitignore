@@ -1,0 +1,28 @@
+/target
+# Third-party source downloads (~6.6 GB, copied from bevy-parkour). Kept out
+# of Git until the storage strategy (LFS or other) is decided.
+/asset_sources/
+# Hydrated copies from the authenticated private-assets submodule.
+/assets/character/
+/assets/animations/
+/.jackdaw
+# Extension builds (`jd build`) and packs (`jd extension pack`).
+/crates/*/.jackdaw
+/crates/*/target
+*.jdext
+
+/artifacts/
+
+# Local credentials and Pulumi stack configuration (including encrypted values).
+.env
+node_modules/
+.env.*
+/infra/Pulumi.*.yaml
+/infra/Pulumi.*.yml
+/infra/Pulumi.*.yaml.*
+/infra/Pulumi.*.yml.*
+/infra/.pulumi/
+/infra/.tools/
+/infra/sdks/
+/infra/target/
+/.compiler-cache/

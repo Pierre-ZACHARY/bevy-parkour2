@@ -1,0 +1,10 @@
+[package]
+name = "skeleton_retarget"
+version = "0.1.0"
+edition = "2024"
+rust-version = "1.97.1"
+description = "Runtime retargeting: a source skeleton's pose copied every frame onto a character's skeleton"
+publish = false
+
+[dependencies]
+bevy = { version = "0.20", default-features = false, features = ["std"] }

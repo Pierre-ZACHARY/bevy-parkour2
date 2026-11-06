@@ -1,0 +1,24 @@
+[package]
+name = "bevy_noodle_jackdaw_editor"
+version = "0.1.3"
+edition = "2024"
+publish = false
+# `jd extension pack` reads publisher, license and homepage from here.
+license = "MIT OR Apache-2.0"
+
+# A Jackdaw editor extension: a Bevy library built on jackdaw_extension.
+# jackdaw builds it in .jackdaw/ against the editor's SDK (`jd build`);
+# `cargo check` works standalone.
+
+# Keeps this project out of any cargo workspace it was created inside.
+[workspace]
+
+[package.metadata.jackdaw]
+label = "Flow Graph"
+publisher = "Pierre Zachary"
+
+[dependencies]
+bevy = "0.20"
+jackdaw_extension = { version = "=0.20.1-rc.1" }
+bevy_noodle_jackdaw = { path = "../bevy_noodle_jackdaw", features = ["view"] }
+pose_preview = { path = "../pose_preview" }

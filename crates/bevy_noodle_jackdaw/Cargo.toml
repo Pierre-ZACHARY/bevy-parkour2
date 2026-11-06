@@ -1,0 +1,47 @@
+[package]
+name = "bevy_noodle_jackdaw"
+version = "0.1.0"
+edition = "2024"
+description = "Node graphs saved as Jackdaw BSN assets, run in the game and drawn with bevy_noodle"
+publish = false
+
+# Built on its own (tests) and as a path dependency of the game and of the
+# Jackdaw extension; no surrounding workspace.
+[workspace]
+
+[features]
+# The bevy_noodle canvas: in the editor extension, or as an in-game view.
+view = ["dep:bevy_noodle", "bevy/bevy_ui", "bevy/ui_api", "bevy/bevy_picking", "bevy/ui_picking", "bevy/bevy_scene", "bevy/ui_bevy_render", "bevy/bevy_ui_widgets", "bevy/bevy_input_focus", "bevy/bevy_world_serialization"]
+# One source node per leafwing-input-manager action.
+leafwing = ["dep:leafwing-input-manager"]
+# Tnua nodes: walk (sink) and controller state (source).
+tnua = ["dep:bevy-tnua"]
+
+[dependencies]
+bevy = { version = "0.20", default-features = false, features = ["std", "bevy_asset", "bevy_camera", "bevy_log"] }
+jackdaw_bsn = "=0.20.1-rc.1"
+# Vendored in crates/bevy_noodle (routed wires).
+bevy_noodle = { path = "../bevy_noodle", version = "0.5", optional = true, features = ["default_style"] }
+leafwing-input-manager = { version = "0.22", optional = true, default-features = false }
+bevy-tnua = { version = "0.33.1", optional = true }
+
+[profile.dev]
+opt-level = 1
+
+[profile.dev.package."*"]
+opt-level = 3
+
+# Isolated CI profiles; keep the interactive development profile unchanged.
+[profile.ci]
+inherits = "dev"
+debug = 1
+[profile.ci.package."*"]
+opt-level = 1
+
+[profile.coverage]
+inherits = "dev"
+opt-level = 0
+debug = 2
+incremental = false
+[profile.coverage.package."*"]
+opt-level = 0

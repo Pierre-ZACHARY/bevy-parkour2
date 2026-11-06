@@ -1,0 +1,12 @@
+[package]
+name = "character_animation"
+version = "0.1.0"
+edition = "2024"
+rust-version = "1.97.1"
+description = "Animation graphs for characters, playing clips retargeted from a source skeleton"
+publish = false
+
+[dependencies]
+bevy = { version = "0.20.1", default-features = false, features = ["std", "bevy_asset", "bevy_log", "bevy_animation", "bevy_gltf", "gltf_animation", "bevy_world_serialization"] }
+bevy_noodle_jackdaw = { path = "../bevy_noodle_jackdaw" }
+skeleton_retarget = { path = "../skeleton_retarget" }

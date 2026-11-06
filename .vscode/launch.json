@@ -1,0 +1,77 @@
+{
+    // Cross-platform (Windows / macOS). "Jeu (debug)" and "Jeu (release)" use
+    // CodeLLDB's `cargo` mode: it builds and finds the executable itself.
+    // The editor and hotpatch entries only run a command in the integrated
+    // terminal: Jackdaw detaches from its launcher and dx starts the game
+    // itself, so there is nothing for a debugger to attach to.
+    // The editor entry opens the precompiled editor `jackdaw.toml` pins
+    // (`jd open`; the cargo-installed `jackdaw` loads no extensions), after
+    // rebuilding the project's extensions if their sources changed.
+    "version": "0.2.0",
+    "configurations": [
+        {
+            "name": "Jeu (dev, hotpatch)",
+            "type": "node-terminal",
+            "request": "launch",
+            "preLaunchTask": "Assets privés (setup)",
+            "command": "pwsh -NoProfile -File tools/cached_command.ps1 dx serve --hot-patch --features hotpatch",
+            "cwd": "${workspaceFolder}",
+            "env": {
+                // Read and watch `assets/` in place, not dx's bundled copy.
+                "BEVY_ASSET_ROOT": "${workspaceFolder}"
+            }
+        },
+        {
+            "name": "Éditeur (Jackdaw)",
+            "type": "node-terminal",
+            "request": "launch",
+            "preLaunchTask": "Extensions Jackdaw (si modifiées)",
+            "command": "pwsh -NoProfile -File tools/cached_command.ps1 jd open",
+            "cwd": "${workspaceFolder}"
+        },
+        {
+            "name": "Jeu (debug)",
+            "type": "lldb",
+            "request": "launch",
+            "preLaunchTask": "Assets privés (setup)",
+            "cargo": {
+                "args": ["build", "--bin=bevy_parkour2"],
+                "cwd": "${workspaceFolder}",
+                "env": { "CARGO_INCREMENTAL": "0" },
+                "filter": { "name": "bevy_parkour2", "kind": "bin" }
+            },
+            "cwd": "${workspaceFolder}",
+            "env": {
+                "BEVY_ASSET_ROOT": "${workspaceFolder}"
+            },
+            "windows": {
+                "env": {
+                    "BEVY_ASSET_ROOT": "${workspaceFolder}",
+                    // The Windows debug heap makes allocations very slow
+                    // under a debugger.
+                    "_NO_DEBUG_HEAP": "1"
+                }
+            },
+            "sourceLanguages": ["rust"],
+            "terminal": "console"
+        },
+        {
+            "name": "Jeu (release)",
+            "type": "lldb",
+            "request": "launch",
+            "preLaunchTask": "Assets privés (setup)",
+            "cargo": {
+                "args": ["build", "--release", "--no-default-features", "--bin=bevy_parkour2"],
+                "cwd": "${workspaceFolder}",
+                "env": { "CARGO_INCREMENTAL": "0" },
+                "filter": { "name": "bevy_parkour2", "kind": "bin" }
+            },
+            "cwd": "${workspaceFolder}",
+            "env": {
+                "BEVY_ASSET_ROOT": "${workspaceFolder}"
+            },
+            "sourceLanguages": ["rust"],
+            "terminal": "console"
+        }
+    ]
+}

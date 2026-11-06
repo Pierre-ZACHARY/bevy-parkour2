@@ -1,0 +1,15 @@
+[alias]
+xtask = "run --locked -p xtask --"
+
+# One-time bootstrap: pwsh -File tools/setup_cache.ps1
+# The compiler facade remains active when Jackdaw/Dioxus set their own wrapper.
+[build]
+rustc = ".compiler-cache/bin/rustc"
+rustc-wrapper = ".compiler-cache/bin/sccache"
+incremental = false
+
+[env]
+CARGO_INCREMENTAL = { value = "0", force = true }
+# cc-rs also reads this from build-script environment. External ABI/hotpatch
+# wrappers keep precedence because this entry does not force an override.
+RUSTC_WRAPPER = { value = ".compiler-cache/bin/sccache", relative = true }

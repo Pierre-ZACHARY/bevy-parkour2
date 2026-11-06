@@ -1,0 +1,317 @@
+[
+  {
+    "id": "sentry-browser",
+    "host": "universal",
+    "version": "11.11.0",
+    "url": "https://browser.sentry-cdn.com/11.11.0/bundle.min.js",
+    "sha256": "de90b2d22df285068879d7f68d188b7458d5a2e89f364e1851e407b521153727",
+    "format": "file",
+    "file": "sentry-browser.js"
+  },
+  {
+    "id": "nextest",
+    "host": "x86_64-pc-windows-msvc",
+    "version": "0.9.151",
+    "url": "https://github.com/nextest-rs/nextest/releases/download/cargo-nextest-0.9.151/cargo-nextest-0.9.151-x86_64-pc-windows-msvc.tar.gz",
+    "sha256": "e51bdb4b5883df48f335381b287378edb244318fac65ae0adaf6b9e69298246b",
+    "format": "tar.gz",
+    "file": "cargo-nextest.exe"
+  },
+  {
+    "id": "llvm-cov",
+    "host": "x86_64-pc-windows-msvc",
+    "version": "0.9.1",
+    "url": "https://github.com/taiki-e/cargo-llvm-cov/releases/download/v0.9.1/cargo-llvm-cov-x86_64-pc-windows-msvc.tar.gz",
+    "sha256": "15eefd5b90fcdd4006b727c6e710d70a61aff509fcd7bb37f9c2a35c4f024948",
+    "format": "tar.gz",
+    "file": "cargo-llvm-cov.exe"
+  },
+  {
+    "id": "wasm-bindgen",
+    "host": "x86_64-pc-windows-msvc",
+    "version": "0.2.130",
+    "url": "https://github.com/wasm-bindgen/wasm-bindgen/releases/download/0.2.130/wasm-bindgen-0.2.130-x86_64-pc-windows-msvc.tar.gz",
+    "sha256": "844d23f1b56097549b936dd2e0d561fadebc1e8c9e985d5068b6b919654104ad",
+    "format": "tar.gz",
+    "file": "wasm-bindgen.exe"
+  },
+  {
+    "id": "wasm-opt",
+    "host": "x86_64-pc-windows-msvc",
+    "version": "133",
+    "url": "https://github.com/WebAssembly/binaryen/releases/download/version_133/binaryen-version_133-x86_64-windows.tar.gz",
+    "sha256": "17a2cbeac6b5693c5fbafab3838d3c65fd9c1eb38b05f5baec6c657e8c84995b",
+    "format": "tar.gz",
+    "file": "wasm-opt.exe"
+  },
+  {
+    "id": "nextest",
+    "host": "x86_64-unknown-linux-gnu",
+    "version": "0.9.151",
+    "url": "https://github.com/nextest-rs/nextest/releases/download/cargo-nextest-0.9.151/cargo-nextest-0.9.151-x86_64-unknown-linux-gnu.tar.gz",
+    "sha256": "1d4ce302b820c41f4b89c5fb9bce45f0f0c94882c1cf08fc360caf08be6e7df4",
+    "format": "tar.gz",
+    "file": "cargo-nextest"
+  },
+  {
+    "id": "llvm-cov",
+    "host": "x86_64-unknown-linux-gnu",
+    "version": "0.9.1",
+    "url": "https://github.com/taiki-e/cargo-llvm-cov/releases/download/v0.9.1/cargo-llvm-cov-x86_64-unknown-linux-gnu.tar.gz",
+    "sha256": "b3f68e625481fed9b16444174f3fa5ebcdbde4a1878803a35eabe2dcefcdc41a",
+    "format": "tar.gz",
+    "file": "cargo-llvm-cov"
+  },
+  {
+    "id": "wasm-bindgen",
+    "host": "x86_64-unknown-linux-gnu",
+    "version": "0.2.130",
+    "url": "https://github.com/wasm-bindgen/wasm-bindgen/releases/download/0.2.130/wasm-bindgen-0.2.130-x86_64-unknown-linux-musl.tar.gz",
+    "sha256": "9687f3bb551b9f66f37ed32a40d7913a00f7962db653054e56857bc306c3227f",
+    "format": "tar.gz",
+    "file": "wasm-bindgen"
+  },
+  {
+    "id": "wasm-opt",
+    "host": "x86_64-unknown-linux-gnu",
+    "version": "133",
+    "url": "https://github.com/WebAssembly/binaryen/releases/download/version_133/binaryen-version_133-x86_64-linux.tar.gz",
+    "sha256": "2dc9c7813f5375db93d96ead4b78222fcc3e2677bbb832297af4797782a37489",
+    "format": "tar.gz",
+    "file": "wasm-opt"
+  },
+  {
+    "id": "nextest",
+    "host": "aarch64-unknown-linux-gnu",
+    "version": "0.9.151",
+    "url": "https://github.com/nextest-rs/nextest/releases/download/cargo-nextest-0.9.151/cargo-nextest-0.9.151-aarch64-unknown-linux-gnu.tar.gz",
+    "sha256": "3e35e8f6913af92558ba09d7155f74e35dd1f0024ef3cd891637433ae4eacbdd",
+    "format": "tar.gz",
+    "file": "cargo-nextest"
+  },
+  {
+    "id": "llvm-cov",
+    "host": "aarch64-unknown-linux-gnu",
+    "version": "0.9.1",
+    "url": "https://github.com/taiki-e/cargo-llvm-cov/releases/download/v0.9.1/cargo-llvm-cov-aarch64-unknown-linux-gnu.tar.gz",
+    "sha256": "abf5f13c1520f8756d2192bfaaeadb0208f5b7eaa8cadc15bf847befa42b7360",
+    "format": "tar.gz",
+    "file": "cargo-llvm-cov"
+  },
+  {
+    "id": "wasm-bindgen",
+    "host": "aarch64-unknown-linux-gnu",
+    "version": "0.2.130",
+    "url": "https://github.com/wasm-bindgen/wasm-bindgen/releases/download/0.2.130/wasm-bindgen-0.2.130-aarch64-unknown-linux-gnu.tar.gz",
+    "sha256": "cc8dd8e90aa9111758168d30c63a14b7f0276997d9d60d3e160a1fb5e7d3b919",
+    "format": "tar.gz",
+    "file": "wasm-bindgen"
+  },
+  {
+    "id": "wasm-opt",
+    "host": "aarch64-unknown-linux-gnu",
+    "version": "133",
+    "url": "https://github.com/WebAssembly/binaryen/releases/download/version_133/binaryen-version_133-aarch64-linux.tar.gz",
+    "sha256": "89c07ea56faf38d0fbecf36ca8ec0721756716185f265b568e133d427f299bf8",
+    "format": "tar.gz",
+    "file": "wasm-opt"
+  },
+  {
+    "id": "nextest",
+    "host": "aarch64-apple-darwin",
+    "version": "0.9.151",
+    "url": "https://github.com/nextest-rs/nextest/releases/download/cargo-nextest-0.9.151/cargo-nextest-0.9.151-universal-apple-darwin.tar.gz",
+    "sha256": "d1d7d025d4bfc9fb154cd76aea3949bd78534829a0589abefa6e5dd4edb135dd",
+    "format": "tar.gz",
+    "file": "cargo-nextest"
+  },
+  {
+    "id": "llvm-cov",
+    "host": "aarch64-apple-darwin",
+    "version": "0.9.1",
+    "url": "https://github.com/taiki-e/cargo-llvm-cov/releases/download/v0.9.1/cargo-llvm-cov-aarch64-apple-darwin.tar.gz",
+    "sha256": "7e821a6c90c0884f79f759f5d9be50799ade67bb82515186d922f26032ef43b8",
+    "format": "tar.gz",
+    "file": "cargo-llvm-cov"
+  },
+  {
+    "id": "wasm-bindgen",
+    "host": "aarch64-apple-darwin",
+    "version": "0.2.130",
+    "url": "https://github.com/wasm-bindgen/wasm-bindgen/releases/download/0.2.130/wasm-bindgen-0.2.130-aarch64-apple-darwin.tar.gz",
+    "sha256": "b90ddb9357f584b1af897d58ad77e4cce2b48fc17e2a967bc249a87f72809444",
+    "format": "tar.gz",
+    "file": "wasm-bindgen"
+  },
+  {
+    "id": "wasm-opt",
+    "host": "aarch64-apple-darwin",
+    "version": "133",
+    "url": "https://github.com/WebAssembly/binaryen/releases/download/version_133/binaryen-version_133-arm64-macos.tar.gz",
+    "sha256": "ad66da82ac13f163e424b1643f16c6dfcccc98b5966296b43e52d3cab04f84a8",
+    "format": "tar.gz",
+    "file": "wasm-opt"
+  },
+  {
+    "id": "nextest",
+    "host": "x86_64-apple-darwin",
+    "version": "0.9.151",
+    "url": "https://github.com/nextest-rs/nextest/releases/download/cargo-nextest-0.9.151/cargo-nextest-0.9.151-universal-apple-darwin.tar.gz",
+    "sha256": "d1d7d025d4bfc9fb154cd76aea3949bd78534829a0589abefa6e5dd4edb135dd",
+    "format": "tar.gz",
+    "file": "cargo-nextest"
+  },
+  {
+    "id": "llvm-cov",
+    "host": "x86_64-apple-darwin",
+    "version": "0.9.1",
+    "url": "https://github.com/taiki-e/cargo-llvm-cov/releases/download/v0.9.1/cargo-llvm-cov-x86_64-apple-darwin.tar.gz",
+    "sha256": "ddf949b82a63017441ea76aa068bdd7e2dde8055f47cd3ef736fdbbd633bc33e",
+    "format": "tar.gz",
+    "file": "cargo-llvm-cov"
+  },
+  {
+    "id": "wasm-bindgen",
+    "host": "x86_64-apple-darwin",
+    "version": "0.2.130",
+    "url": "https://github.com/wasm-bindgen/wasm-bindgen/releases/download/0.2.130/wasm-bindgen-0.2.130-x86_64-apple-darwin.tar.gz",
+    "sha256": "eb209c115b7cb95832423c1aa3f4d06d6c53f63ef74fc4b6fb79ef0b2eea5f10",
+    "format": "tar.gz",
+    "file": "wasm-bindgen"
+  },
+  {
+    "id": "wasm-opt",
+    "host": "x86_64-apple-darwin",
+    "version": "133",
+    "url": "https://github.com/WebAssembly/binaryen/releases/download/version_133/binaryen-version_133-x86_64-macos.tar.gz",
+    "sha256": "13a9b90be775c6389ce3d1f879cb8627bea56708ba8c122983941d53a8199b95",
+    "format": "tar.gz",
+    "file": "wasm-opt"
+  },
+  {
+    "id": "moltenvk",
+    "host": "aarch64-apple-darwin",
+    "version": "1.4.2",
+    "url": "https://github.com/KhronosGroup/MoltenVK/releases/download/v1.4.2/MoltenVK-macos.tar",
+    "sha256": "f95765a6229cb7b915990a2890ce12ebe36a730b021545d3d52ae69ce4c4024e",
+    "format": "tar",
+    "file": "libMoltenVK.dylib"
+  },
+  {
+    "id": "sccache",
+    "host": "x86_64-pc-windows-msvc",
+    "version": "0.19.0",
+    "url": "https://github.com/mozilla/sccache/releases/download/v0.19.0/sccache-v0.19.0-x86_64-pc-windows-msvc.tar.gz",
+    "sha256": "130e4f8eb672e76590e9993c2ab890c4763b88238577bb11d8062158c7698353",
+    "format": "tar.gz",
+    "file": "sccache.exe"
+  },
+  {
+    "id": "sccache",
+    "host": "x86_64-unknown-linux-musl",
+    "version": "0.19.0",
+    "url": "https://github.com/mozilla/sccache/releases/download/v0.19.0/sccache-v0.19.0-x86_64-unknown-linux-musl.tar.gz",
+    "sha256": "aa73c7270c997894038c0d8f0d297865f57569e1687883322bc431713d4bb9dd",
+    "format": "tar.gz",
+    "file": "sccache"
+  },
+  {
+    "id": "sccache",
+    "host": "aarch64-unknown-linux-musl",
+    "version": "0.19.0",
+    "url": "https://github.com/mozilla/sccache/releases/download/v0.19.0/sccache-v0.19.0-aarch64-unknown-linux-musl.tar.gz",
+    "sha256": "3e47fc4a71b1ddd1b4294a0de9d34498922fdf41e3cd0bda5df3954e3d6deb9d",
+    "format": "tar.gz",
+    "file": "sccache"
+  },
+  {
+    "id": "sccache",
+    "host": "aarch64-apple-darwin",
+    "version": "0.19.0",
+    "url": "https://github.com/mozilla/sccache/releases/download/v0.19.0/sccache-v0.19.0-aarch64-apple-darwin.tar.gz",
+    "sha256": "a35a0b7d622618774bc1bb8102d72562dfb21e619f88b153b370d7f89bc286af",
+    "format": "tar.gz",
+    "file": "sccache"
+  },
+  {
+    "id": "sccache",
+    "host": "x86_64-apple-darwin",
+    "version": "0.19.0",
+    "url": "https://github.com/mozilla/sccache/releases/download/v0.19.0/sccache-v0.19.0-x86_64-apple-darwin.tar.gz",
+    "sha256": "2db7344bb96de350df79cd9f0124dd4e9baa47b3de2fac1e63e1346b66b20684",
+    "format": "tar.gz",
+    "file": "sccache"
+  },
+  {
+    "host": "x86_64-unknown-linux-gnu",
+    "file": "sentry-cli",
+    "sha256": "c958865f9d4000183509ea21b1f04925d5390de6d8d87386b9e69f2b305070c3",
+    "id": "sentry-cli",
+    "url": "https://github.com/getsentry/sentry-cli/releases/download/3.8.2/sentry-cli-Linux-x86_64",
+    "version": "3.8.2",
+    "format": "file"
+  },
+  {
+    "host": "aarch64-apple-darwin",
+    "file": "sentry-cli",
+    "sha256": "c80d92b6d34eb64fe7402f56cc7968fbb15aab1c763254ad428b55cc98ec7dcf",
+    "id": "sentry-cli",
+    "url": "https://github.com/getsentry/sentry-cli/releases/download/3.8.2/sentry-cli-Darwin-arm64",
+    "version": "3.8.2",
+    "format": "file"
+  },
+  {
+    "host": "x86_64-pc-windows-msvc",
+    "file": "sentry-cli.exe",
+    "sha256": "50009f23c49d6e9ff7624204c7035855303b49c5e326708ee783c1fdf783ac83",
+    "id": "sentry-cli",
+    "url": "https://github.com/getsentry/sentry-cli/releases/download/3.8.2/sentry-cli-Windows-x86_64.exe",
+    "version": "3.8.2",
+    "format": "file"
+  },
+  {
+    "host": "aarch64-unknown-linux-gnu",
+    "file": "sentry-cli",
+    "sha256": "b6e49fca868a36d20da2ada1832a0ce2f9ac7012c128207518b09d6b6c991f4d",
+    "id": "sentry-cli",
+    "url": "https://github.com/getsentry/sentry-cli/releases/download/3.8.2/sentry-cli-Linux-aarch64",
+    "version": "3.8.2",
+    "format": "file"
+  },
+  {
+    "url": "https://binaries.sonarsource.com/Distribution/sonar-scanner-cli/sonar-scanner-cli-8.0.1.6346-linux-x64.zip",
+    "version": "8.0.1.6346",
+    "id": "sonar-scanner",
+    "format": "zip",
+    "host": "x86_64-unknown-linux-gnu",
+    "sha256": "4bd40bf8411ed104853e94a3746ec92bc92845fde2b27dbf5c33fb5cfa8ecbe9",
+    "file": "sonar-scanner-cli-8.0.1.6346.jar"
+  },
+  {
+    "url": "https://binaries.sonarsource.com/Distribution/sonar-scanner-cli/sonar-scanner-cli-8.0.1.6346-linux-aarch64.zip",
+    "version": "8.0.1.6346",
+    "id": "sonar-scanner",
+    "format": "zip",
+    "host": "aarch64-unknown-linux-gnu",
+    "sha256": "ae2b062ed6d640ab9014ab576042385d54c910857de952f5cb2592d2a2d7c8d8",
+    "file": "sonar-scanner-cli-8.0.1.6346.jar"
+  },
+  {
+    "url": "https://binaries.sonarsource.com/Distribution/sonar-scanner-cli/sonar-scanner-cli-8.0.1.6346-macosx-aarch64.zip",
+    "version": "8.0.1.6346",
+    "id": "sonar-scanner",
+    "format": "zip",
+    "host": "aarch64-apple-darwin",
+    "sha256": "2d65d49c327ec8ca5ec7c6dc2af17749f5b43c596fd906501bba5a0b09edc5e2",
+    "file": "sonar-scanner-cli-8.0.1.6346.jar"
+  },
+  {
+    "url": "https://binaries.sonarsource.com/Distribution/sonar-scanner-cli/sonar-scanner-cli-8.0.1.6346-windows-x64.zip",
+    "version": "8.0.1.6346",
+    "id": "sonar-scanner",
+    "format": "zip",
+    "host": "x86_64-pc-windows-msvc",
+    "sha256": "52b35b24be4ce5ec2e2933b32683db45db139581c46945546d9739b0c8866231",
+    "file": "sonar-scanner-cli-8.0.1.6346.jar"
+  }
+]

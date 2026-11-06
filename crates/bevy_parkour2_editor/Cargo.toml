@@ -1,0 +1,23 @@
+[package]
+name = "bevy_parkour2_editor"
+version = "0.1.0"
+edition = "2024"
+publish = false
+# `jd extension pack` reads publisher, license and homepage from here.
+license = "MIT"
+
+# A Jackdaw editor extension for this project's own editor code, so the
+# generic ones (Flow Graph) stay generic. jackdaw builds it in .jackdaw/
+# against the editor's SDK (`jd build`); `cargo check` works standalone.
+
+# Keeps this project out of any cargo workspace it was created inside.
+[workspace]
+
+[package.metadata.jackdaw]
+label = "bevy-parkour2"
+publisher = "Pierre Zachary"
+
+[dependencies]
+bevy = "0.20"
+jackdaw_extension = { version = "=0.20.1-rc.1" }
+ninja_hair = { path = "../ninja_hair" }

@@ -1,0 +1,20 @@
+<!doctype html>
+<html lang="en">
+<head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Bevy Parkour</title>
+<style>html,body{margin:0;height:100%;background:#111;color:#eee;font:16px system-ui}canvas{display:block;width:100%;height:100%}#status{position:fixed;top:1rem;left:1rem;right:1rem;white-space:pre-wrap}</style></head>
+<body><canvas id="game" tabindex="0" aria-label="Bevy Parkour game"></canvas><div id="status">Loading…</div><script type="module">
+const status = document.querySelector('#status');
+const fail = error => { globalThis.__parkourCaptureError?.(error); status.hidden=false; status.textContent='Unable to start the game: '+String(error); status.setAttribute('role','alert'); };
+window.addEventListener('error', e => fail(e.error || e.message));
+window.addEventListener('unhandledrejection', e => fail(e.reason));
+window.addEventListener('parkour-status', ({detail:d}) => {
+  if(d.catalog_error) fail(d.catalog_error);
+  else if(d.catalog_ready && d.players.length && d.meshes > 1 && d.cameras && d.movement_graph_ready) { status.hidden=true; }
+});
+try {
+  if (!navigator.gpu) throw new Error('WebGPU is unavailable. Open this page over HTTPS or localhost in a WebGPU-capable browser.');
+  if (!await navigator.gpu.requestAdapter()) throw new Error('No compatible WebGPU adapter is available.');
+  const {default: init} = await import('./game.js');
+  await init();
+} catch (error) { fail(error); console.error(error); }
+</script></body></html>

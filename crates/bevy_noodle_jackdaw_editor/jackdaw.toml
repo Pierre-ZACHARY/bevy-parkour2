@@ -1,0 +1,16 @@
+# jackdaw project settings. Everything here has a working default;
+# delete any line you are not using.
+
+# An extension is loaded by the editor rather than run as a game, so
+# there is no plugin or run configuration here. The pins below record
+# which jackdaw this was built against: an extension only loads into a
+# jackdaw with a matching ABI, and `jd extension abi` prints the exact
+# key a marketplace should serve it under.
+
+# Recorded when this project was set up. Jackdaw compares these on
+# open so an editor upgrade is reported instead of surfacing as a
+# build failure.
+[jackdaw]
+version = "0.20.1-rc.1"
+bevy = "0.20"
+channel = "stable"

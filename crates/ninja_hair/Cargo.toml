@@ -1,0 +1,11 @@
+[package]
+name = "ninja_hair"
+version = "0.1.0"
+edition = "2024"
+rust-version = "1.97.1"
+description = "Stable minification for the Ninja's hair cards"
+publish = false
+
+# Bevy only, so the editor's blend space previews fix the hair too.
+[dependencies]
+bevy = "0.20"

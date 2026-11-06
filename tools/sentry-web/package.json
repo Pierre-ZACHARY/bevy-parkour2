@@ -1,0 +1,6 @@
+{
+  "name": "parkour-official-sentry-browser",
+  "private": true,
+  "version": "1.0.0",
+  "dependencies": { "@sentry/browser": "11.11.0", "@sentry/wasm": "11.11.0", "esbuild": "0.25.12" }
+}

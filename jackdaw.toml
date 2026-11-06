@@ -1,0 +1,26 @@
+# jackdaw project settings.
+
+# No `plugin` key: `jd doctor` only looks for it in `src/lib.rs`, and the
+# game code lives in the binary crate so Dioxus CLI can hotpatch it.
+
+# The workspace member that is the game; the character crates beside it
+# also depend on bevy, so the editor cannot guess.
+package = "bevy_parkour2"
+
+# Recorded when this project was set up. Jackdaw compares these on
+# open so an editor upgrade is reported instead of surfacing as a
+# build failure.
+[jackdaw]
+version = "0.20.1-rc.1"
+bevy = "0.20"
+channel = "stable"
+
+# Optional jackdaw modules this project uses. Change them from the
+# editor (File > Modules) so the game's Cargo.toml follows.
+[modules]
+physics = true
+navmesh = false
+multiplayer = false
+
+[[run]]
+name = "Play"

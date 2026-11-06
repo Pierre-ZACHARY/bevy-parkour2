@@ -1,0 +1,19 @@
+[package]
+name = "character_controller"
+version = "0.1.0"
+edition = "2024"
+rust-version = "1.97.1"
+description = "Headless Tnua/Avian character controller driven by a node graph"
+publish = false
+
+[features]
+# The movement graph over the game, toggled with Tab.
+view = ["bevy_noodle_jackdaw/view", "bevy/bevy_ui"]
+
+[dependencies]
+bevy = { version = "0.20.1", default-features = false, features = ["std", "bevy_asset", "bevy_camera", "bevy_log"] }
+avian3d = "0.8.0"
+bevy-tnua = "0.33.1"
+bevy-tnua-avian3d = "0.13.1"
+leafwing-input-manager = "0.22"
+bevy_noodle_jackdaw = { path = "../bevy_noodle_jackdaw", features = ["leafwing", "tnua"] }

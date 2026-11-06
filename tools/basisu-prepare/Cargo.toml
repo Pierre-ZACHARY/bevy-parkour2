@@ -1,0 +1,13 @@
+[package]
+name = "basisu-prepare"
+version = "0.1.0"
+edition = "2024"
+publish = false
+
+[dependencies]
+anyhow = "1"
+basisu_c_sys = { workspace = true, features = ["encoder", "extra", "std", "transcode_default"] }
+image = { version = "0.25", default-features = false, features = ["png"] }
+serde_json = "1"
+jackdaw_bsn = "=0.20.1-rc.1"
+bevy = { version = "=0.20.1", default-features = false, features = ["bevy_camera"] }

@@ -1,0 +1,113 @@
+[package]
+name = "bevy_parkour2"
+version = "0.1.0"
+edition = "2024"
+rust-version = "1.97.1"
+publish = false
+
+# The character controller (portable, headless), its animation and the
+# Ninja (private assets). The graph crates and the editor extension build
+# on their own.
+[workspace]
+members = ["crates/game_telemetry", "crates/camera_controller", "crates/character_animation", "crates/character_controller", "crates/ninja_character", "crates/ninja_hair", "crates/pose_preview", "crates/skeleton_retarget", "tools/xtask", "tools/asset-export", "tools/basisu-prepare", "tools/basisu-prototype"]
+exclude = ["crates/bevy_noodle", "crates/bevy_noodle_jackdaw", "crates/bevy_noodle_jackdaw_editor"]
+
+[features]
+# The Jackdaw editor builds the plain package, so defaults are what it gets.
+# Ship with `--no-default-features`.
+default = ["asset_watch", "editor", "perf_ui"]
+# Reload changed files from `assets/` in the running game.
+asset_watch = ["bevy/file_watcher"]
+editor = ["jackdaw_runtime/pie"]
+# In-game performance overlay (F3); left out of `--no-default-features`
+# builds.
+perf_ui = ["dep:iyes_perf_ui"]
+distribution = []
+sentry = ["dep:game_telemetry", "game_telemetry/official", "dep:image"]
+webgpu = ["bevy/webgpu", "dep:bevy_basisu_loader", "jackdaw_runtime/basisu"]
+macos-vulkan = ["dep:bevy_render", "bevy_render/vulkan-portability"]
+# Bevy as a DLL for faster incremental builds: `cargo run --features dynamic`.
+# Not a default: Dioxus CLI always re-enables default features, and its
+# hotpatches fail to link against a Bevy DLL.
+dynamic = ["bevy/dynamic_linking"]
+# Code hotpatching: `dx serve --hot-patch --features hotpatch` (README).
+hotpatch = ["bevy/hotpatching"]
+
+[dependencies]
+game_telemetry = { path = "crates/game_telemetry", optional = true }
+bevy = "0.20.1"
+avian3d = "0.8.0"
+bevy-tnua-avian3d = "0.13.1"
+# Strip trace/debug logging of dependencies at compile time.
+log = { version = "0.4", features = ["max_level_debug", "release_max_level_warn"] }
+jackdaw_runtime = { version = "=0.20.1-rc.1", default-features = false, features = ["render"] }
+jackdaw_avian_integration = { version = "=0.20.1-rc.1" }
+bevy_noodle_jackdaw = { path = "crates/bevy_noodle_jackdaw" }
+character_animation = { path = "crates/character_animation" }
+camera_controller = { path = "crates/camera_controller", features = ["reticle"] }
+character_controller = { path = "crates/character_controller", features = ["view"] }
+leafwing-input-manager = "0.22"
+image = { version = "0.25", optional = true, default-features = false, features = ["png"] }
+serde_json = "1"
+# Bevy 0.20 port of iyes_perf_ui 0.5.0: see vendor/iyes_perf_ui/PORTING.md.
+iyes_perf_ui = { path = "vendor/iyes_perf_ui", optional = true, default-features = false, features = ["entries", "sysinfo"] }
+ninja_character = { path = "crates/ninja_character" }
+
+[dev-dependencies]
+# The flow graph example previews blend spaces on the Ninja.
+ninja_hair = { path = "crates/ninja_hair" }
+pose_preview = { path = "crates/pose_preview" }
+
+# Enable a small amount of optimization in the dev profile.
+[profile.dev]
+opt-level = 1
+
+# Enable a large amount of optimization in the dev profile for dependencies.
+[profile.dev.package."*"]
+opt-level = 3
+
+# Enable more optimization in the release profile at the cost of compile time.
+[profile.release]
+codegen-units = 1
+lto = "thin"
+
+[target.'cfg(target_os = "macos")'.dependencies]
+bevy_render = { version = "=0.20.1", optional = true }
+
+[profile.wasm-release]
+inherits = "release"
+opt-level = "s"
+strip = "debuginfo"
+
+# Isolated CI profiles; keep the interactive development profile unchanged.
+[profile.ci]
+inherits = "dev"
+debug = 1
+[profile.ci.package."*"]
+opt-level = 1
+
+[profile.coverage]
+inherits = "dev"
+opt-level = 0
+debug = 2
+incremental = false
+[profile.coverage.package."*"]
+opt-level = 0
+
+# Browser entropy for Bevy/rand on wasm32.
+[target.'cfg(target_arch = "wasm32")'.dependencies]
+getrandom = { version = "0.4", features = ["wasm_js"] }
+wasm-bindgen = "0.2"
+image = { version = "0.25", default-features = false, features = ["png"] }
+bevy_basisu_loader = { workspace = true, optional = true }
+
+# Native editor/distributions retain the existing importer; browsers use BasisuLoaderPlugin.
+[target.'cfg(not(target_arch = "wasm32"))'.dependencies]
+jackdaw_runtime = { version = "=0.20.1-rc.1", features = ["texture-import", "soft_shadows"] }
+
+[patch.crates-io]
+jackdaw_runtime = { path = "vendor/jackdaw_runtime" }
+
+[workspace.dependencies]
+bevy_basisu_loader = { git = "https://github.com/beicause/basisu_c_sys", rev = "14f2186f59b5e41a6cb1f9272b8175e7862d5b05" }
+basisu_c_sys = { git = "https://github.com/beicause/basisu_c_sys", rev = "14f2186f59b5e41a6cb1f9272b8175e7862d5b05", default-features = false }

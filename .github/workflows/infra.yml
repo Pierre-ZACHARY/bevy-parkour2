@@ -1,0 +1,60 @@
+name: Infrastructure
+on:
+  workflow_dispatch:
+    inputs:
+      operation:
+        description: Pulumi operation
+        type: choice
+        options: [preview, up]
+        default: preview
+
+permissions:
+  contents: read
+
+concurrency:
+  group: pulumi-dev
+  cancel-in-progress: false
+
+jobs:
+  infrastructure:
+    if: github.ref == 'refs/heads/main'
+    runs-on: windows-2022
+    environment: infrastructure
+    env:
+      INFISICAL_INFRA_IDENTITY_ID: ${{ vars.INFISICAL_INFRA_IDENTITY_ID }}
+      PULUMI_ACCESS_TOKEN: ${{ secrets.PULUMI_ACCESS_TOKEN }}
+      GITHUB_TOKEN: ${{ secrets.INFRA_GH_TOKEN }}
+    permissions:
+      contents: read
+      id-token: write
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          persist-credentials: false
+      - name: Retrieve infrastructure credentials with GitHub OIDC
+        shell: pwsh
+        run: ./tools/infisical-ci.ps1 -Scope infra -IdentityId '${{ vars.INFISICAL_INFRA_IDENTITY_ID }}'
+      - uses: dtolnay/rust-toolchain@683b588c487a69d01f6c6ddf40f036ff682cc2c8
+        with:
+          toolchain: 1.97.1
+      - uses: pulumi/actions@96c7761824268174e0d2a4e8c7d75671eebd24a7
+        with:
+          pulumi-version: 3.274.0
+      - name: Prepare compiler and Pulumi Rust plugin
+        shell: pwsh
+        run: |
+          ./tools/setup_cache.ps1
+          ./infra/bootstrap.ps1
+      - name: Restore ignored stack settings from Pulumi Cloud
+        shell: pwsh
+        run: pulumi --cwd infra config refresh --force --stack Pierre-ZACHARY/bevy-parkour2-infra/dev --non-interactive
+        env:
+          PULUMI_BACKEND_URL: https://api.pulumi.com
+      - name: Preview infrastructure
+        if: inputs.operation == 'preview'
+        shell: pwsh
+        run: ./infra/pulumi.ps1 preview --stack Pierre-ZACHARY/bevy-parkour2-infra/dev --non-interactive --diff
+      - name: Apply infrastructure
+        if: inputs.operation == 'up'
+        shell: pwsh
+        run: ./infra/pulumi.ps1 up --stack Pierre-ZACHARY/bevy-parkour2-infra/dev --non-interactive --yes

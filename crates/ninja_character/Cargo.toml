@@ -1,0 +1,21 @@
+[package]
+name = "ninja_character"
+version = "0.1.0"
+edition = "2024"
+rust-version = "1.97.1"
+description = "The Ninja Vex model and animations on character_controller"
+# Ships third-party assets that are not redistributed.
+publish = false
+
+[dependencies]
+bevy = "0.20.1"
+character_animation = { path = "../character_animation" }
+character_controller = { path = "../character_controller" }
+ninja_hair = { path = "../ninja_hair" }
+
+[dev-dependencies]
+camera_controller = { path = "../camera_controller" }
+avian3d = "0.8.0"
+bevy-tnua-avian3d = "0.13.1"
+leafwing-input-manager = "0.22"
+bevy_noodle_jackdaw = { path = "../bevy_noodle_jackdaw", features = ["tnua"] }

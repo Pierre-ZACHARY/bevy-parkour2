@@ -1,0 +1,37 @@
+{
+    // PowerShell 7 (`pwsh`) runs the script on Windows and macOS alike.
+    "version": "2.0.0",
+    "tasks": [
+        {
+            "label": "Cache de compilation (setup)",
+            "detail": "Installs the pinned compiler cache frontends; remote access uses Infisical login",
+            "type": "process",
+            "command": "pwsh",
+            "args": ["-NoProfile", "-File", "${workspaceFolder}/tools/setup_cache.ps1"],
+            "options": { "cwd": "${workspaceFolder}" },
+            "problemMatcher": []
+        },
+        {
+            "label": "Assets privés (setup)",
+            "detail": "Prepares the licensed assets from the authenticated private submodule",
+            "dependsOn": "Cache de compilation (setup)",
+            "dependsOrder": "sequence",
+            "type": "process",
+            "command": "pwsh",
+            "args": ["-NoProfile", "-File", "${workspaceFolder}/tools/setup_assets.ps1"],
+            "options": { "cwd": "${workspaceFolder}" },
+            "problemMatcher": []
+        },
+        {
+            "label": "Extensions Jackdaw (si modifiées)",
+            "detail": "Builds and installs the project's Jackdaw extensions when their sources changed",
+            "dependsOn": "Assets privés (setup)",
+            "dependsOrder": "sequence",
+            "type": "process",
+            "command": "pwsh",
+            "args": ["-NoProfile", "-File", "${workspaceFolder}/tools/editor_extension.ps1"],
+            "options": { "cwd": "${workspaceFolder}" },
+            "problemMatcher": []
+        }
+    ]
+}

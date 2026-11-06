@@ -1,0 +1,12 @@
+{
+  "domain": "https://eu.infisical.com",
+  "organizationId": "bed55d7a-b476-4db2-8a3e-6fcf5a76741b",
+  "buildProjectId": "14c6d66a-46eb-4da7-ace1-701461b5951a",
+  "infraProjectId": "e53997b0-d446-4c26-988c-b0b5910f0efd",
+  "releaseProjectId": "9da32398-aa8e-4faf-9216-dfd6157c6dad",
+  "environment": "dev",
+  "cachePath": "/cache",
+  "maintainerCacheFallback": "true",
+  "appPath": "/app",
+  "analysisPath": "/analysis"
+}

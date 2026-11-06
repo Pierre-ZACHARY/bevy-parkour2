@@ -1,0 +1,12 @@
+[package]
+name = "pose_preview"
+version = "0.1.0"
+edition = "2024"
+rust-version = "1.97.1"
+description = "Blend space previews: a character posed by a blend space node's blend, drawn in the node"
+publish = false
+
+[dependencies]
+bevy = "0.20"
+bevy_noodle_jackdaw = { path = "../bevy_noodle_jackdaw", features = ["view"] }
+skeleton_retarget = { path = "../skeleton_retarget" }

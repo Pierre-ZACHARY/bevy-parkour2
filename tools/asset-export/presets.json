@@ -1,0 +1,162 @@
+{
+  "schema": 1,
+  "presets": {
+    "original": {
+      "windows-x64": "source",
+      "linux-x64": "source",
+      "linux-arm64": "source",
+      "macos-arm64": "source",
+      "webgpu": "source"
+    },
+    "optimized": {
+      "windows-x64": "desktop-lossless",
+      "linux-x64": "desktop-lossless",
+      "linux-arm64": "desktop-lossless",
+      "macos-arm64": "desktop-lossless",
+      "webgpu": "web-2k"
+    }
+  },
+  "recipes": {
+    "source": [],
+    "desktop-lossless": [
+      {
+        "path": "character/ninja/textures/MAT_BODY_F_01_Tattoo_orm.png",
+        "semantic": "data",
+        "channels": "rgb"
+      },
+      {
+        "path": "character/ninja/textures/MAT_CYBER_NG_CLOTHES_01_orm.png",
+        "semantic": "data",
+        "channels": "rgb"
+      },
+      {
+        "path": "character/ninja/textures/MAT_EYES_20_orm.png",
+        "semantic": "data",
+        "channels": "rgb"
+      },
+      {
+        "path": "character/ninja/textures/MAT_HEAD_F_14_02_orm.png",
+        "semantic": "data",
+        "channels": "rgb"
+      },
+      {
+        "path": "character/ninja/textures/MAT_LASHES_05_rgba.png",
+        "semantic": "color",
+        "channels": "rgb"
+      },
+      {
+        "path": "character/ninja/textures/T_CYBER_NG_CLOTHES_BaseColor_01.png",
+        "semantic": "color",
+        "channels": "rgb"
+      },
+      {
+        "path": "character/ninja/textures/T_EYES_Normal_01.png",
+        "semantic": "normal",
+        "channels": "rgb"
+      },
+      {
+        "path": "character/ninja/textures/T_HAIR_STRAIGHT_normal.png",
+        "semantic": "normal",
+        "channels": "rgb"
+      },
+      {
+        "path": "character/ninja/textures/T_HEAD_F_BaseColor_14_02.png",
+        "semantic": "color",
+        "channels": "rgb"
+      }
+    ],
+    "web-2k": [
+      {
+        "path": "character/ninja/textures/MAT_BODY_F_01_Tattoo_orm.png",
+        "semantic": "data",
+        "channels": "rgb",
+        "max_size": 2048
+      },
+      {
+        "path": "character/ninja/textures/MAT_CYBER_NG_CLOTHES_01_orm.png",
+        "semantic": "data",
+        "channels": "rgb",
+        "max_size": 2048
+      },
+      {
+        "path": "character/ninja/textures/MAT_EYES_20_orm.png",
+        "semantic": "data",
+        "channels": "rgb"
+      },
+      {
+        "path": "character/ninja/textures/MAT_HAIR_STRAIGHT_18_rgba.png",
+        "semantic": "color",
+        "channels": "preserve",
+        "max_size": 2048
+      },
+      {
+        "path": "character/ninja/textures/MAT_HEAD_F_14_02_orm.png",
+        "semantic": "data",
+        "channels": "rgb",
+        "max_size": 2048
+      },
+      {
+        "path": "character/ninja/textures/MAT_LASHES_05_rgba.png",
+        "semantic": "color",
+        "channels": "rgb"
+      },
+      {
+        "path": "character/ninja/textures/T_BODY_F_BaseColor_Tattoo.png",
+        "semantic": "color",
+        "channels": "preserve",
+        "max_size": 2048
+      },
+      {
+        "path": "character/ninja/textures/T_BODY_Normal_01.png",
+        "semantic": "normal",
+        "channels": "preserve",
+        "max_size": 2048
+      },
+      {
+        "path": "character/ninja/textures/T_CYBER_NG_CLOTHES_BaseColor_01.png",
+        "semantic": "color",
+        "channels": "rgb",
+        "max_size": 2048
+      },
+      {
+        "path": "character/ninja/textures/T_CYBER_NG_CLOTHES_Normal.png",
+        "semantic": "normal",
+        "channels": "preserve",
+        "max_size": 2048
+      },
+      {
+        "path": "character/ninja/textures/T_EYES_BaseColor_20.png",
+        "semantic": "color",
+        "channels": "preserve"
+      },
+      {
+        "path": "character/ninja/textures/T_EYES_Normal_01.png",
+        "semantic": "normal",
+        "channels": "rgb"
+      },
+      {
+        "path": "character/ninja/textures/T_HAIR_STRAIGHT_normal.png",
+        "semantic": "normal",
+        "channels": "rgb",
+        "max_size": 2048
+      },
+      {
+        "path": "character/ninja/textures/T_HEAD_F_BaseColor_14_02.png",
+        "semantic": "color",
+        "channels": "rgb",
+        "max_size": 2048
+      },
+      {
+        "path": "character/ninja/textures/T_HEAD_Normal_01.png",
+        "semantic": "normal",
+        "channels": "preserve",
+        "max_size": 2048
+      },
+      {
+        "path": "character/ninja/textures/T_Placeholder_02.png",
+        "semantic": "data",
+        "channels": "preserve"
+      }
+    ]
+  }
+}

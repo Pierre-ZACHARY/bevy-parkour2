@@ -1,0 +1,15 @@
+{
+    "rust-analyzer.cargo.extraEnv": { "CARGO_INCREMENTAL": "0" },
+    "terminal.integrated.env.windows": {
+        "PATH": "${workspaceFolder}\\.compiler-cache\\bin;${env:PATH}",
+        "CARGO_INCREMENTAL": "0"
+    },
+    "terminal.integrated.env.osx": {
+        "PATH": "${workspaceFolder}/.compiler-cache/bin:${env:PATH}",
+        "CARGO_INCREMENTAL": "0"
+    },
+    "terminal.integrated.env.linux": {
+        "PATH": "${workspaceFolder}/.compiler-cache/bin:${env:PATH}",
+        "CARGO_INCREMENTAL": "0"
+    }
+}

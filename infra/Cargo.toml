@@ -1,0 +1,15 @@
+[package]
+name = "bevy-parkour2-infra"
+version = "0.1.0"
+edition = "2024"
+publish = false
+
+# The experimental SDK is not published on crates.io. bootstrap.ps1 installs
+# this exact upstream revision locally; the checkout itself is ignored.
+[dependencies]
+pulumi = { path = ".tools/pulumi-rust-d62e9f213321befce6f870971e191c9f3946b967/sdk/rust/pulumi" }
+serde_json = "1"
+
+# Infrastructure is independent from the game and its toolchain/dependencies.
+[workspace]
+exclude = [".tools", "sdks"]

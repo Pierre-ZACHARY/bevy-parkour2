@@ -1,0 +1,31 @@
+name: Private runtime assets
+description: Retrieve the pinned private submodule without authoring downloads
+inputs:
+  repository:
+    description: Private assets repository
+    required: true
+  ssh-key:
+    description: Read-only deploy key for this repository only
+    required: true
+runs:
+  using: composite
+  steps:
+    - name: Resolve pinned assets commit
+      id: revision
+      shell: pwsh
+      run: |
+        $revision = git rev-parse HEAD:private-assets
+        if ($LASTEXITCODE -ne 0 -or $revision -notmatch '^[a-f0-9]{40}$') { throw 'Missing private-assets gitlink' }
+        "sha=$revision" >> $env:GITHUB_OUTPUT
+    - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+      with:
+        repository: ${{ inputs.repository }}
+        ref: ${{ steps.revision.outputs.sha }}
+        ssh-key: ${{ inputs.ssh-key }}
+        path: private-assets
+        persist-credentials: false
+        lfs: true
+        sparse-checkout: assets
+    - name: Prepare runtime paths
+      shell: pwsh
+      run: ./tools/setup_assets.ps1

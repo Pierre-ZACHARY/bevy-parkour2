@@ -1,0 +1,13 @@
+nextest-version = "0.9.151"
+
+[profile.ci]
+fail-fast = false
+retries = 0
+test-threads = 2
+slow-timeout = { period = "30s", terminate-after = 10 }
+
+[profile.ci.junit]
+path = "junit.xml"
+store-success-output = false
+store-failure-output = true
+report-skipped = "all"

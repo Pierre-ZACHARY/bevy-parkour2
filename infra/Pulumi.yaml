@@ -1,0 +1,30 @@
+name: bevy-parkour2-infra
+description: OVH compilation cache, Sentry game reporting and SonarCloud quality managed from Rust
+runtime: rust
+backend:
+  url: https://api.pulumi.com
+packages:
+  infisical:
+    source: terraform-provider
+    version: 1.1.0
+    parameters:
+      - Infisical/infisical
+      - 0.19.36
+  ovh:
+    source: terraform-provider
+    version: 1.1.0
+    parameters:
+      - ovh/ovh
+      - 2.24.0
+  sentry:
+    source: terraform-provider
+    version: 1.1.0
+    parameters:
+      - jianyuan/sentry
+      - 0.15.8
+  sonarcloud:
+    source: terraform-provider
+    version: 1.1.0
+    parameters:
+      - rewe-digital/sonarcloud
+      - 0.5.2

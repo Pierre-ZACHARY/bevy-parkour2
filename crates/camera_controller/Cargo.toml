@@ -1,0 +1,20 @@
+[package]
+name = "camera_controller"
+version = "0.1.0"
+edition = "2024"
+rust-version = "1.97.1"
+description = "Third-person and fly cameras driven by node graphs"
+publish = false
+
+[features]
+# A dot at the middle of the screen while a third-person camera renders.
+reticle = ["bevy/bevy_ui", "bevy/bevy_picking"]
+
+[dependencies]
+bevy = { version = "0.20.1", default-features = false, features = ["std", "bevy_asset", "bevy_camera", "bevy_log", "bevy_window"] }
+leafwing-input-manager = "0.22"
+bevy_noodle_jackdaw = { path = "../bevy_noodle_jackdaw", features = ["leafwing"] }
+
+# Tells a Remote Desktop session, whose mouse reports positions (MouseLook).
+[target.'cfg(windows)'.dependencies]
+windows-sys = { version = "0.61", features = ["Win32_UI_WindowsAndMessaging"] }

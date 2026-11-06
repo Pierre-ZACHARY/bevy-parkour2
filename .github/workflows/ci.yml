@@ -1,0 +1,318 @@
+name: Rust CI
+on:
+  pull_request:
+  push:
+    branches: [main]
+    tags: ["v*"]
+  workflow_dispatch:
+    inputs:
+      asset_quality:
+        description: Per-target asset quality preset
+        type: choice
+        options: [original, optimized]
+        default: original
+
+permissions:
+  contents: read
+
+concurrency:
+  group: rust-ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.ref_type != 'tag' }}
+
+env:
+  CARGO_TERM_COLOR: always
+  CARGO_INCREMENTAL: 0
+
+jobs:
+  lint:
+    environment: ${{ github.event_name == 'pull_request' && 'public-checks' || (github.ref_type == 'tag' && 'release' || 'build') }}
+    permissions:
+      contents: read
+      id-token: write
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          lfs: false
+          persist-credentials: false
+      - name: Retrieve licensed runtime assets (trusted jobs only)
+        if: github.event_name != 'pull_request'
+        uses: ./.github/actions/private-assets
+        with:
+          repository: ${{ vars.ASSETS_REPOSITORY }}
+          ssh-key: ${{ secrets.ASSETS_DEPLOY_KEY }}
+      - uses: dtolnay/rust-toolchain@683b588c487a69d01f6c6ddf40f036ff682cc2c8
+        with:
+          toolchain: 1.97.1
+          components: rustfmt, clippy
+      - uses: awalsh128/cache-apt-pkgs-action@553a35bb8ebd9fcabcb1c9451aa4c98e1b4ca8a9
+        with:
+          packages: libasound2-dev libudev-dev libx11-dev libwayland-dev libxkbcommon-dev libxcb-render0-dev libxcb-shape0-dev libxcb-xfixes0-dev pkg-config
+          version: 1
+      - uses: Swatinem/rust-cache@d1527c8f67ef9af357290475d4af4b0fab8f12e0
+        with:
+          key: lint
+      - name: Load shared cache access from Infisical (trusted jobs)
+        if: github.event_name != 'pull_request' && vars.INFISICAL_BUILD_IDENTITY_ID != ''
+        shell: pwsh
+        run: ./tools/infisical-ci.ps1 -Scope cache -IdentityId '${{ vars.INFISICAL_BUILD_IDENTITY_ID }}' -VerifyIsolation
+      - name: Set up project compiler cache
+        shell: pwsh
+        run: ./tools/setup_cache.ps1
+      - run: cargo xtask lint
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        if: always()
+        with:
+          name: lint-reports
+          path: |
+            artifacts/*/summary.json
+            artifacts/*/summary.md
+            artifacts/*/logs/**
+            artifacts/*/tests/**
+            artifacts/*/coverage/**
+            artifacts/*/clippy/**
+          retention-days: 7
+          if-no-files-found: warn
+
+  tests:
+    environment: ${{ github.event_name == 'pull_request' && 'public-checks' || (github.ref_type == 'tag' && 'release' || 'build') }}
+    permissions:
+      contents: read
+      id-token: write
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: windows-2022
+            target: windows-x64
+            command: test
+          - os: ubuntu-24.04
+            target: linux-x64
+            command: coverage
+          - os: ubuntu-24.04-arm
+            target: linux-arm64
+            command: test
+          - os: macos-15
+            target: macos-arm64
+            command: test
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          lfs: false
+          persist-credentials: false
+      - name: Retrieve licensed runtime assets (trusted jobs only)
+        if: github.event_name != 'pull_request'
+        uses: ./.github/actions/private-assets
+        with:
+          repository: ${{ vars.ASSETS_REPOSITORY }}
+          ssh-key: ${{ secrets.ASSETS_DEPLOY_KEY }}
+      - uses: dtolnay/rust-toolchain@683b588c487a69d01f6c6ddf40f036ff682cc2c8
+        with:
+          toolchain: 1.97.1
+          components: llvm-tools-preview
+      - uses: awalsh128/cache-apt-pkgs-action@553a35bb8ebd9fcabcb1c9451aa4c98e1b4ca8a9
+        if: runner.os == 'Linux'
+        with:
+          packages: libasound2-dev libudev-dev libx11-dev libwayland-dev libxkbcommon-dev libxcb-render0-dev libxcb-shape0-dev libxcb-xfixes0-dev pkg-config
+          version: 1
+      - uses: Swatinem/rust-cache@d1527c8f67ef9af357290475d4af4b0fab8f12e0
+        with:
+          key: tests-${{ matrix.target }}
+          cache-directories: target/xtask-cache
+      - name: Load shared cache access from Infisical (trusted jobs)
+        if: github.event_name != 'pull_request' && vars.INFISICAL_BUILD_IDENTITY_ID != ''
+        shell: pwsh
+        run: ./tools/infisical-ci.ps1 -Scope cache -IdentityId '${{ vars.INFISICAL_BUILD_IDENTITY_ID }}'
+      - name: Set up project compiler cache
+        shell: pwsh
+        run: ./tools/setup_cache.ps1
+      - run: cargo xtask ${{ matrix.command }} ${{ github.event_name == 'pull_request' && '--suites xtask,graph,asset-export,noodle' || '' }}
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        if: always()
+        with:
+          name: tests-${{ matrix.target }}
+          path: |
+            artifacts/*/summary.json
+            artifacts/*/summary.md
+            artifacts/*/logs/**
+            artifacts/*/tests/**
+            artifacts/*/coverage/**
+            artifacts/*/clippy/**
+          retention-days: 7
+          if-no-files-found: warn
+
+  build:
+    environment: ${{ github.ref_type == 'tag' && 'release' || 'build' }}
+    env:
+      SENTRY_AUTH_TOKEN: ${{ secrets.SENTRY_AUTH_TOKEN }}
+    if: github.event_name != 'pull_request'
+    permissions:
+      contents: read
+      id-token: write
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: windows-2022
+            targets: windows-x64
+          - os: ubuntu-24.04
+            targets: linux-x64,webgpu
+          - os: ubuntu-24.04-arm
+            targets: linux-arm64
+          - os: macos-15
+            targets: macos-arm64
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          lfs: false
+          persist-credentials: false
+          fetch-depth: 0
+      - name: Retrieve licensed runtime assets (trusted jobs only)
+        if: github.event_name != 'pull_request'
+        uses: ./.github/actions/private-assets
+        with:
+          repository: ${{ vars.ASSETS_REPOSITORY }}
+          ssh-key: ${{ secrets.ASSETS_DEPLOY_KEY }}
+      - uses: dtolnay/rust-toolchain@683b588c487a69d01f6c6ddf40f036ff682cc2c8
+        with:
+          toolchain: 1.97.1
+      - uses: awalsh128/cache-apt-pkgs-action@553a35bb8ebd9fcabcb1c9451aa4c98e1b4ca8a9
+        if: runner.os == 'Linux'
+        with:
+          packages: libasound2-dev libudev-dev libx11-dev libwayland-dev libxkbcommon-dev libxcb-render0-dev libxcb-shape0-dev libxcb-xfixes0-dev pkg-config
+          version: 1
+      - uses: Swatinem/rust-cache@d1527c8f67ef9af357290475d4af4b0fab8f12e0
+        with:
+          key: build-${{ matrix.targets }}
+          cache-directories: target/xtask-cache
+      - name: Load shared cache access from Infisical (trusted jobs)
+        if: github.event_name != 'pull_request' && vars.INFISICAL_BUILD_IDENTITY_ID != ''
+        shell: pwsh
+        run: ./tools/infisical-ci.ps1 -Scope cache -IdentityId '${{ vars.INFISICAL_BUILD_IDENTITY_ID }}'
+      - name: Set up project compiler cache
+        shell: pwsh
+        run: ./tools/setup_cache.ps1
+      - name: Load official build client configuration
+        if: github.ref_type == 'tag'
+        shell: pwsh
+        run: ./tools/infisical-ci.ps1 -Scope app -IdentityId '${{ vars.INFISICAL_BUILD_IDENTITY_ID }}'
+      - name: Load restricted release publisher credentials
+        if: github.ref_type == 'tag'
+        shell: pwsh
+        run: if (-not $env:SENTRY_AUTH_TOKEN) { throw 'Missing release environment credential' }
+        env:
+          INFISICAL_RELEASE_PROJECT_ID: ${{ vars.INFISICAL_RELEASE_PROJECT_ID }}
+      - run: cargo xtask build --targets ${{ matrix.targets }} --asset-quality ${{ inputs.asset_quality || 'original' }} --channel ${{ github.ref_type == 'tag' && 'official' || 'local' }}
+        env:
+          XTASK_TAG: ${{ github.ref_type == 'tag' && github.ref_name || '' }}
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        if: always()
+        with:
+          name: builds-${{ matrix.targets }}
+          path: |
+            artifacts/*/summary.json
+            artifacts/*/summary.md
+            artifacts/*/logs/**
+            artifacts/*/tests/**
+            artifacts/*/coverage/**
+            artifacts/*/clippy/**
+          retention-days: 7
+          if-no-files-found: warn
+
+  sentry-release:
+    environment: release
+    env:
+      SENTRY_AUTH_TOKEN: ${{ secrets.SENTRY_AUTH_TOKEN }}
+    permissions:
+      contents: read
+      id-token: write
+    if: github.ref_type == 'tag'
+    needs: [build]
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          fetch-depth: 0
+      - uses: dtolnay/rust-toolchain@683b588c487a69d01f6c6ddf40f036ff682cc2c8
+        with:
+          toolchain: 1.97.1
+      - name: Load shared cache access from Infisical (trusted jobs)
+        if: github.event_name != 'pull_request' && vars.INFISICAL_BUILD_IDENTITY_ID != ''
+        shell: pwsh
+        run: ./tools/infisical-ci.ps1 -Scope cache -IdentityId '${{ vars.INFISICAL_BUILD_IDENTITY_ID }}'
+      - name: Set up project compiler cache
+        shell: pwsh
+        run: ./tools/setup_cache.ps1
+      - name: Load release configuration
+        shell: pwsh
+        run: |
+          ./tools/infisical-ci.ps1 -Scope app -IdentityId '${{ vars.INFISICAL_BUILD_IDENTITY_ID }}'
+          if (-not $env:SENTRY_AUTH_TOKEN) { throw 'Missing release environment credential' }
+        env:
+          INFISICAL_RELEASE_PROJECT_ID: ${{ vars.INFISICAL_RELEASE_PROJECT_ID }}
+      - run: cargo xtask sentry-finalize --tag "$XTASK_TAG"
+        env:
+          XTASK_TAG: ${{ github.ref_name }}
+
+  sonar:
+    permissions:
+      contents: read
+      id-token: write
+    if: github.event_name != 'pull_request' && github.ref_type != 'tag' && vars.INFISICAL_SONAR_ENABLED == 'true'
+    needs: [tests, lint]
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          fetch-depth: 0
+      - uses: dtolnay/rust-toolchain@683b588c487a69d01f6c6ddf40f036ff682cc2c8
+        with:
+          toolchain: 1.97.1
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093
+        with:
+          name: tests-linux-x64
+          path: artifacts/sonar-input
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093
+        with:
+          name: lint-reports
+          path: artifacts/sonar-lint
+      - name: Load shared cache access from Infisical (trusted jobs)
+        if: github.event_name != 'pull_request' && vars.INFISICAL_BUILD_IDENTITY_ID != ''
+        shell: pwsh
+        run: ./tools/infisical-ci.ps1 -Scope cache -IdentityId '${{ vars.INFISICAL_BUILD_IDENTITY_ID }}'
+      - name: Set up project compiler cache
+        shell: pwsh
+        run: ./tools/setup_cache.ps1
+      - name: Load dedicated Sonar analysis credentials
+        shell: pwsh
+        run: ./tools/infisical-ci.ps1 -Scope analysis -IdentityId '${{ vars.INFISICAL_BUILD_IDENTITY_ID }}'
+      - name: Analyze the tested commit and coverage
+        shell: pwsh
+        run: |
+          $run = Get-ChildItem artifacts/sonar-input -Directory | Where-Object { Test-Path (Join-Path $_.FullName 'summary.json') } | Select-Object -First 1
+          $lint = Get-ChildItem artifacts/sonar-lint -Directory | Where-Object { Test-Path (Join-Path $_.FullName 'clippy') } | Select-Object -First 1
+          if (-not $run -or -not $lint) { throw 'Missing coverage or Clippy artifacts' }
+          Copy-Item -LiteralPath (Join-Path $lint.FullName 'clippy') -Destination $run.FullName -Recurse
+          cargo xtask sonar --input $run.FullName --upload
+
+  required:
+    name: All required checks
+    if: always()
+    needs: [lint, tests, build, sentry-release, sonar]
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+      - uses: dtolnay/rust-toolchain@683b588c487a69d01f6c6ddf40f036ff682cc2c8
+        with:
+          toolchain: 1.97.1
+      - uses: Swatinem/rust-cache@d1527c8f67ef9af357290475d4af4b0fab8f12e0
+        with:
+          key: gate
+      - name: Set up project compiler cache
+        shell: pwsh
+        run: ./tools/setup_cache.ps1
+      - run: cargo xtask gate
+        env:
+          XTASK_JOB_RESULTS: ${{ toJSON(needs) }}

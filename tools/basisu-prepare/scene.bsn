@@ -1,0 +1,9 @@
+#BasisMaterial
+bevy_pbr::pbr_material::StandardMaterial {
+    base_color_texture: "color.basisu.ktx2",
+    unlit: true,
+}
+--
+#BasisPanel
+basisu_prototype::Painted { material: "#BasisMaterial" }
+bevy_transform::components::transform::Transform
