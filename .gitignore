@@ -1,4 +1,5 @@
 /target
+/.tools/
 # Third-party source downloads (~6.6 GB, copied from bevy-parkour). Kept out
 # of Git until the storage strategy (LFS or other) is decided.
 /asset_sources/

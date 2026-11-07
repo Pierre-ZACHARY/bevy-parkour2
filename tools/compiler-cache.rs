@@ -6,7 +6,7 @@ use std::{
     ffi::OsString,
     fs,
     hash::{Hash, Hasher},
-    net::TcpListener,
+    net::{SocketAddr, TcpListener, TcpStream},
     path::{Path, PathBuf},
     process::{Command, ExitCode},
     time::{Duration, Instant},
@@ -178,8 +178,28 @@ fn setup(root: &Path) -> Result<()> {
     }
     fs::write(
         home.join("config.toml"),
-        "# Project cache settings are supplied by the frontend environment.\n",
+        "# Remote storage can take longer than sccache's default ten seconds.\nserver_startup_timeout_ms = 60000\n",
     )?;
+    // Initialize once before Cargo starts parallel compiler processes. Keep
+    // exactly the same environment/profile selection as the compiler facade.
+    let config = configuration(root)?;
+    let port: u16 = config
+        .get("SCCACHE_SERVER_PORT")
+        .ok_or("missing sccache server port")?
+        .to_str()
+        .ok_or("invalid sccache server port")?
+        .parse()?;
+    if TcpStream::connect_timeout(
+        &SocketAddr::from(([127, 0, 0, 1], port)),
+        Duration::from_millis(100),
+    )
+    .is_err()
+    {
+        let mut start = Command::new(&real);
+        start.arg("--start-server").envs(config);
+        strip_management(&mut start);
+        checked(&mut start)?;
+    }
     println!(
         "Project compiler cache ready (sccache {VERSION}). Remote access uses your Infisical login."
     );

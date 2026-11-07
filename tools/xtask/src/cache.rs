@@ -99,7 +99,10 @@ struct Receipt {
     files: BTreeMap<String, String>,
 }
 fn installed(base: &Path, spec: &Spec) -> Result<PathBuf> {
-    let receipt: Receipt = serde_json::from_slice(&fs::read(base.join("receipt.json"))?)?;
+    let receipt: Receipt = serde_json::from_slice(
+        &fs::read(base.join("receipt.json"))
+            .with_context(|| format!("missing cache receipt for {} at {}; restore the complete tool cache outside Cargo's target directory", spec.id, base.display()))?,
+    )?;
     anyhow::ensure!(receipt.archive_sha256 == spec.sha256, "cache pin mismatch");
     let actual = inventory(&base.join("content"))?;
     anyhow::ensure!(

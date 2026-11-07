@@ -216,15 +216,31 @@ fn test_suite(
     }
     let out = run.dir.join("tests").join(suite.name);
     fs::create_dir_all(&out)?;
-    // Coverage builds are separate from normal builds and from each other.
-    let target = run
-        .root
-        .join(if coverage {
-            "target/coverage-ci"
-        } else {
-            "target/ci"
-        })
-        .join(if coverage { suite.name } else { "shared" });
+    // Hosted runners cannot retain every suite's Bevy build at once. The
+    // temporary directory is owned by this invocation; ordinary local caches
+    // and other running suites are never removed.
+    let scratch = if coverage && opts.discard_build_artifacts {
+        let parent = run.root.join("target/ci-ephemeral");
+        fs::create_dir_all(&parent)?;
+        Some(
+            tempfile::Builder::new()
+                .prefix(suite.name)
+                .tempdir_in(parent)?,
+        )
+    } else {
+        None
+    };
+    let target = if let Some(scratch) = &scratch {
+        scratch.path().join("coverage")
+    } else {
+        run.root
+            .join(if coverage {
+                "target/coverage-ci"
+            } else {
+                "target/ci"
+            })
+            .join(if coverage { suite.name } else { "shared" })
+    };
     // File locks are released by the OS even if this process crashes.
     // Two coverage runs must never clean or merge each other's raw profiles.
     fs::create_dir_all(&target)?;
@@ -303,7 +319,9 @@ fn test_suite(
     run.junit(suite.name, &junit);
     run.save()?;
     if coverage {
-        // Report options do not repeat Cargo feature flags; the collection owns them.
+        // In llvm-cov 0.9.1 report accepts neither --exclude nor
+        // --exclude-from-report. Package selection belongs to collection;
+        // only matching profraw data exists in this suite's isolated target.
         for format in ["html", "lcov", "json"] {
             let cov = out.join("coverage");
             fs::create_dir_all(&cov)?;
@@ -313,17 +331,7 @@ fn test_suite(
                 .arg(run.root.join(suite.manifest))
                 .args(["--profile", "coverage", "--locked"]);
             if suite.workspace {
-                report.args([
-                    "--workspace",
-                    "--exclude",
-                    "xtask",
-                    "--exclude",
-                    "asset-export",
-                    "--exclude",
-                    "basisu-prepare",
-                    "--exclude",
-                    "basisu-prototype",
-                ]);
+                report.arg("--workspace");
             }
             report.arg(format!("--{format}"));
             let expected = if format == "html" {
@@ -358,12 +366,25 @@ fn test_suite(
             }
         }
     }
+    // LCOV/JSON/HTML are already exported. Free instrumented object files
+    // before compiling the non-instrumented doctests, rather than doubling
+    // the peak disk usage and retaining all previous suites.
+    drop(_coverage_lock);
+    if scratch.is_some() {
+        fs::remove_dir_all(&target)?;
+    }
     // Stable doctests run separately and are never claimed to be part of JUnit/coverage.
     let mut docs = cargo(&run.root, opts);
     docs.args(["test", "--doc"]);
     suite_args(&mut docs, suite, &run.root);
     docs.args(["--profile", "ci", "--jobs", &opts.jobs.to_string()]);
-    docs.env("CARGO_TARGET_DIR", run.root.join("target/ci/shared"));
+    docs.env(
+        "CARGO_TARGET_DIR",
+        scratch.as_ref().map_or_else(
+            || run.root.join("target/ci/shared"),
+            |scratch| scratch.path().join("doctests"),
+        ),
+    );
     if matches!(suite.name, "xtask" | "asset-export") {
         run.steps.push(Step {
             name: format!("{}-doctests", suite.name),
@@ -451,6 +472,108 @@ mod gate_tests {
 #[cfg(test)]
 mod acceptance {
     use super::*;
+
+    /// Exercise the pinned nextest/llvm-cov CLIs, rather than mirroring their
+    /// argument parser in a mock. Run explicitly when changing coverage setup.
+    #[test]
+    #[ignore = "requires cached nextest and llvm-cov; run real_coverage_reports --ignored"]
+    fn real_coverage_reports() -> Result<()> {
+        let repository = Path::new(env!("CARGO_MANIFEST_DIR"))
+            .parent()
+            .and_then(Path::parent)
+            .unwrap();
+        let host = model::host()?;
+        let temp = tempfile::tempdir()?;
+        let root = temp.path();
+        fs::create_dir_all(root.join("src"))?;
+        fs::create_dir_all(root.join(".config"))?;
+        fs::write(
+            root.join("Cargo.toml"),
+            r#"[package]
+name = "coverage_fixture"
+version = "0.1.0"
+edition = "2024"
+[workspace]
+members = ["xtask", "asset-export", "basisu-prepare", "basisu-prototype"]
+[profile.ci]
+inherits = "dev"
+[profile.coverage]
+inherits = "dev"
+incremental = false
+"#,
+        )?;
+        for excluded in [
+            "xtask",
+            "asset-export",
+            "basisu-prepare",
+            "basisu-prototype",
+        ] {
+            fs::create_dir_all(root.join(excluded).join("src"))?;
+            fs::write(
+                root.join(excluded).join("Cargo.toml"),
+                format!(
+                    "[package]\nname = \"{excluded}\"\nversion = \"0.1.0\"\nedition = \"2024\"\n"
+                ),
+            )?;
+            fs::write(
+                root.join(excluded).join("src/lib.rs"),
+                "#[test] fn must_be_excluded() { panic!(\"excluded workspace tool\"); }\n",
+            )?;
+        }
+        fs::write(
+            root.join("src/lib.rs"),
+            "/// ```\n/// assert_eq!(coverage_fixture::sum(2, 3), 5);\n/// ```\npub fn sum(a: u32, b: u32) -> u32 { a + b }\n#[test] fn covered() { assert_eq!(sum(1, 2), 3); }\n",
+        )?;
+        fs::write(
+            root.join(".config/nextest.toml"),
+            "[profile.ci]\n[profile.ci.junit]\npath = \"junit.xml\"\nreport-skipped = \"all\"\n",
+        )?;
+        let output = process::output(
+            Command::new("cargo")
+                .args(["generate-lockfile", "--offline"])
+                .current_dir(root),
+        )?;
+        let _ = output;
+        let opts = Common {
+            jobs: 2,
+            // Existing local tool downloads remain usable via --cache-dir.
+            cache_dir: repository.join(".tools/xtask"),
+            out_dir: repository.join("artifacts/acceptance"),
+            offline: true,
+            discard_build_artifacts: true,
+        };
+        let path = tool_path(repository, &opts, &host, &["nextest", "llvm-cov"])?;
+        let suite = Suite {
+            name: "fixture",
+            manifest: "Cargo.toml",
+            features: "",
+            workspace: true,
+        };
+        llvm_component(root, &opts)?;
+        let mut run = Run::new(repository, &opts, &host)?;
+        run.root = root.into();
+        test_suite(&mut run, &opts, &suite, true, &path)?;
+        run.completed = true;
+        run.save()?;
+        assert!(!run.failed(), "{run:?}");
+        assert_eq!(run.tests[0].counts.as_ref().unwrap().passed, 1);
+        for file in ["html/index.html", "lcov.info", "coverage.json"] {
+            assert!(
+                run.dir
+                    .join("tests/fixture/coverage")
+                    .join(file)
+                    .metadata()?
+                    .len()
+                    > 0
+            );
+        }
+        let lcov = fs::read_to_string(run.dir.join("tests/fixture/coverage/lcov.info"))?;
+        assert!(lcov.contains("src") && lcov.contains("lib.rs"));
+        assert!(!lcov.contains("must_be_excluded"));
+        assert_eq!(fs::read_dir(root.join("target/ci-ephemeral"))?.count(), 0);
+        println!("Coverage acceptance evidence: {}", run.dir.display());
+        Ok(())
+    }
     /// Explicit acceptance run: requires the pinned nextest already in the local cache.
     /// This fixture never edits game assets and is excluded from normal CI tests.
     #[test]
@@ -504,9 +627,10 @@ report-skipped = "all"
         )?;
         let opts = Common {
             jobs: 2,
-            cache_dir: repository.join("target/xtask-cache"),
+            cache_dir: repository.join(".tools/xtask"),
             out_dir: repository.join("artifacts/acceptance"),
             offline: true,
+            discard_build_artifacts: false,
         };
         let path = tool_path(&repository, &opts, &host, &["nextest"])?;
         let suite = Suite {

@@ -164,9 +164,10 @@ mod tests {
             .unwrap();
         let opts = Common {
             jobs: 2,
-            cache_dir: root.join("target/xtask-cache"),
+            cache_dir: root.join(".tools/xtask"),
             out_dir: root.join("artifacts/telemetry-research/sentry-cli"),
             offline: false,
+            discard_build_artifacts: false,
         };
         let mut run = crate::report::Run::new(root, &opts, &crate::model::host()?)?;
         let args = BuildArgs {
@@ -257,6 +258,7 @@ mod tests {
             cache_dir: "absent".into(),
             out_dir: "absent".into(),
             offline: true,
+            discard_build_artifacts: false,
         };
         assert!(
             resolve(Path::new("nonexistent"), &opts, &args)
@@ -273,6 +275,7 @@ mod tests {
             cache_dir: tmp.path().join("cache"),
             out_dir: tmp.path().join("out"),
             offline: true,
+            discard_build_artifacts: false,
         };
         let spec = cache::spec("sentry-browser", "universal").unwrap();
         let base = opts
@@ -318,9 +321,10 @@ mod tests {
         fs::create_dir_all(&directory).unwrap();
         let opts = Common {
             jobs: 2,
-            cache_dir: root.join("target/xtask-cache"),
+            cache_dir: root.join(".tools/xtask"),
             out_dir: directory.clone(),
             offline: false,
+            discard_build_artifacts: false,
         };
         let args = BuildArgs {
             targets: vec![Target::WindowsX64],
@@ -379,9 +383,10 @@ mod tests {
         fs::create_dir_all(&stage).unwrap();
         let opts = Common {
             jobs: 2,
-            cache_dir: root.join("target/xtask-cache"),
+            cache_dir: root.join(".tools/xtask"),
             out_dir: stage.clone(),
             offline: false,
+            discard_build_artifacts: false,
         };
         let args = BuildArgs {
             targets: vec![Target::Webgpu],

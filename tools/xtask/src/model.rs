@@ -131,8 +131,11 @@ pub struct Common {
     #[arg(long, global = true, default_value_t = 2, value_parser = clap::value_parser!(u16).range(1..))]
     pub jobs: u16,
     /// Download cache. Never installs tools into the global PATH.
-    #[arg(long, global = true, default_value = "target/xtask-cache")]
+    #[arg(long, global = true, default_value = ".tools/xtask")]
     pub cache_dir: PathBuf,
+    /// Use temporary coverage/doctest build directories, preserving only reports.
+    #[arg(long, global = true)]
+    pub discard_build_artifacts: bool,
     /// Parent of unique run directories; existing results are never overwritten.
     #[arg(long, global = true, default_value = "artifacts")]
     pub out_dir: PathBuf,

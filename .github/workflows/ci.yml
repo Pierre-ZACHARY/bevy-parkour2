@@ -61,6 +61,11 @@ jobs:
         shell: pwsh
         run: ./tools/setup_cache.ps1
       - run: cargo xtask lint
+      - name: Report compiler cache statistics
+        if: always()
+        continue-on-error: true
+        shell: pwsh
+        run: ./.compiler-cache/bin/sccache --show-stats
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
         if: always()
         with:
@@ -120,7 +125,15 @@ jobs:
       - uses: Swatinem/rust-cache@d1527c8f67ef9af357290475d4af4b0fab8f12e0
         with:
           key: tests-${{ matrix.target }}
-          cache-directories: target/xtask-cache
+          # Coverage exports reports and discards compilation artifacts per suite.
+          # Do not restore old multi-suite target trees onto the small runner disk.
+          prefix-key: ${{ matrix.command == 'coverage' && 'v1-coverage-no-targets' || 'v0-rust' }}
+          cache-targets: ${{ matrix.command != 'coverage' }}
+      # Tool receipts and binaries must not be pruned as Cargo artifacts.
+      - uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9
+        with:
+          path: .tools/xtask
+          key: xtask-tools-v2-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('tools/xtask/tools.lock.json') }}
       - name: Load shared cache access from Infisical (trusted jobs)
         if: github.event_name != 'pull_request' && vars.INFISICAL_BUILD_IDENTITY_ID != ''
         shell: pwsh
@@ -128,7 +141,12 @@ jobs:
       - name: Set up project compiler cache
         shell: pwsh
         run: ./tools/setup_cache.ps1
-      - run: cargo xtask ${{ matrix.command }} ${{ github.event_name == 'pull_request' && '--suites xtask,graph,asset-export,noodle' || '' }}
+      - run: cargo xtask ${{ matrix.command }} ${{ github.event_name == 'pull_request' && '--suites xtask,graph,asset-export,noodle' || '' }} ${{ matrix.command == 'coverage' && '--discard-build-artifacts' || '' }}
+      - name: Report compiler cache statistics
+        if: always()
+        continue-on-error: true
+        shell: pwsh
+        run: ./.compiler-cache/bin/sccache --show-stats
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
         if: always()
         with:
@@ -187,7 +205,11 @@ jobs:
       - uses: Swatinem/rust-cache@d1527c8f67ef9af357290475d4af4b0fab8f12e0
         with:
           key: build-${{ matrix.os }}
-          cache-directories: target/xtask-cache
+      # Tool receipts and binaries must not be pruned as Cargo artifacts.
+      - uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9
+        with:
+          path: .tools/xtask
+          key: xtask-tools-v2-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('tools/xtask/tools.lock.json') }}
       - name: Install Clang 22 for vendored WebGPU libc++
         if: contains(matrix.targets, 'webgpu')
         shell: bash
@@ -225,6 +247,11 @@ jobs:
       - run: cargo xtask build --targets ${{ matrix.targets }} --asset-quality ${{ inputs.asset_quality || 'original' }} --channel ${{ github.ref_type == 'tag' && 'official' || 'local' }}
         env:
           XTASK_TAG: ${{ github.ref_type == 'tag' && github.ref_name || '' }}
+      - name: Report compiler cache statistics
+        if: always()
+        continue-on-error: true
+        shell: pwsh
+        run: ./.compiler-cache/bin/sccache --show-stats
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
         if: always()
         with:

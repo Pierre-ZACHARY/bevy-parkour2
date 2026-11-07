@@ -20,6 +20,10 @@ and editor builds. Bootstrap it once with `pwsh -File tools/setup_cache.ps1`;
 the workflow and VS Code launch tasks do this automatically. Trusted CI jobs
 exchange GitHub OIDC tokens for scoped Infisical access at runtime.
 Without credentials, including pull requests, sccache uses a local backend.
+The bootstrap initializes the selected daemon before Cargo starts parallel
+compilers and allows up to 60 seconds for remote storage initialization.
+Lint, test and build jobs print cache statistics even after a failure; a Cargo
+`Compiling` line alone does not establish whether S3 was a hit or a miss.
 See [remote compilation cache](REMOTE-CACHE.md) for measurements and the limits
 of Rust cache reuse between different checkout paths.
 
@@ -41,7 +45,7 @@ cargo xtask build --targets webgpu --asset-quality optimized
 cargo xtask ci --targets linux-x64 --coverage
 ```
 
-Common options: `--jobs 2`, `--cache-dir target/xtask-cache`,
+Common options: `--jobs 2`, `--cache-dir .tools/xtask`,
 `--out-dir artifacts`, `--offline`. Paths are relative to the repository.
 Every invocation creates a unique run directory; reports are never overwritten.
 `report` is the explicit exception: it regenerates the summary of an existing
@@ -93,6 +97,14 @@ export failures still fail the command. A failed test run attempts all exports
 before exiting. Concurrent coverage collections for the same suite are refused
 with an OS-managed lock. An interrupted pipeline stays INCOMPLETE. Missing results are UNAVAILABLE, never zero successful tests.
 
+On hosted runners, `coverage --discard-build-artifacts` uses a unique temporary
+build directory for each suite. After exporting its reports, instrumented build
+files are removed before doctests compile; the remaining temporary files are
+removed when the suite finishes. Reports and logs remain in `artifacts/`.
+Local runs retain their build directories by default. Coverage CI does not
+restore old Cargo target trees, which can otherwise fill the runner disk before
+tests start. Every suite, including Noodle, still runs.
+
 The run directory contains `summary.json`, `summary.md`, `logs/` and
 `tests/<suite>/junit.xml`; coverage adds `tests/<suite>/coverage/`.
 The opt-in tooling acceptance test creates a temporary crate with a failure,
@@ -102,10 +114,14 @@ report. It does not touch game assets:
 ```
 cargo xtask test --suites xtask
 cargo test -p xtask real_nextest_reports -- --ignored --nocapture
+cargo test -p xtask real_coverage_reports -- --ignored --nocapture
 ```
 
 The first command prepares the pinned nextest cache; the second requires that
 cache and performs no download. Normal CI never runs ignored authoring tests.
+The coverage acceptance test also requires the pinned llvm-cov cache and the
+installed llvm-tools-preview component. It runs a synthetic workspace through
+the real tools, verifies HTML/LCOV/JSON and checks temporary build cleanup.
 
 Coverage percentages from different suites are not averaged. Sonar upload,
 source-to-test mapping, branch coverage and doctest coverage are future work.
@@ -130,6 +146,10 @@ locked. Every reuse checks the installed file inventory and hashes. A corrupted
 cache is rejected; remove only the reported SDK/version/host directory to rebuild
 it. Offline mode fails if required artifacts are absent. No SDK downloads occur
 inside a Cargo build script.
+Tool downloads live outside Cargo's `target/`, in `.tools/xtask`, and have their
+own GitHub Actions cache. Cargo cache pruning must not delete their receipts or
+SDK files. `--cache-dir target/xtask-cache` still permits explicit reuse of an
+intact older local cache.
 
 ## Packages
 
