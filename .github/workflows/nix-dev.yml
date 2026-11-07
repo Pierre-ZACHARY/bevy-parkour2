@@ -27,7 +27,8 @@ permissions:
 
 concurrency:
   group: nix-dev-${{ github.ref }}
-  cancel-in-progress: ${{ github.ref != 'refs/heads/main' }}
+  # Cold SDK/Dioxus builds must finish so the next push can restore their store.
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 jobs:
   dev-shell:

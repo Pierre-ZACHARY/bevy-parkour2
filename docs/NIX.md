@@ -192,6 +192,9 @@ Le cache d'artifacts Cargo de GitHub est également conservé pour les commandes
 xtask : remplacer ce cache par le seul store Nix ferait recompiler leurs
 dépendances, puisque leurs répertoires `target` sont distincts de ceux de Crane.
 Sa clé Linux inclut `flake.lock` pour suivre les bibliothèques et compilateurs Nix.
+Les téléchargements xtask utilisent `.xtask-cache` en CI, via `XTASK_CACHE_DIR`,
+pour que le nettoyage du cache Cargo ne supprime pas leurs reçus et exécutables.
+En local, le défaut reste `target/xtask-cache` ; `--cache-dir` est prioritaire.
 
 GitHub restaure et sauvegarde `/nix` avec `cache-nix-action`, par architecture,
 job et empreinte des fichiers de dépendances. Les PR peuvent lire le cache de

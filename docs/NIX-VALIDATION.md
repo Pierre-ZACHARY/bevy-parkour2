@@ -100,6 +100,17 @@ la phase rapport et autorisent la CI à supprimer chaque build de couverture
 après ses rapports, sous verrou. Les SDK inutilisés des runners Linux sont
 également retirés. La validation GitHub de ces corrections reste nécessaire.
 
+La couverture locale de la suite jeu a ensuite réussi avec les corrections :
+64 tests passent, 3 sont ignorés ; HTML, LCOV, JSON et doctests sont produits.
+Le répertoire instrumenté est supprimé après les rapports et son verrou reste
+extérieur à ce répertoire. Les 32 tests xtask et Clippy passent également.
+
+L'exécution suivante a révélé un problème de restauration du cache Windows :
+`rust-cache` supprime récursivement les fichiers non Cargo sous `target/`, y
+compris les reçus et outils téléchargés par xtask. La CI place désormais ces
+outils dans `.xtask-cache`, avec une configuration commune `XTASK_CACHE_DIR`.
+Le défaut local et la priorité de `--cache-dir` sont conservés et vérifiés.
+
 Le support `aarch64-darwin`, ses outils et ses deux shells passent l'évaluation
 Nix. La compilation native macOS avec Nix et les CLI Dioxus/Jackdaw sont vérifiées
 par le job macOS modifié ; l'évaluation depuis Linux ne prouve pas leur exécution.

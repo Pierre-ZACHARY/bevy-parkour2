@@ -130,14 +130,19 @@ pub struct Common {
     /// Parallel compiler jobs and test processes (defaults to two).
     #[arg(long, global = true, default_value_t = 2, value_parser = clap::value_parser!(u16).range(1..))]
     pub jobs: u16,
-    /// Download cache. Never installs tools into the global PATH.
-    #[arg(long, global = true, default_value = "target/xtask-cache")]
+    /// Download cache (XTASK_CACHE_DIR). Never installs tools into the global PATH.
+    #[arg(long, global = true, default_value_os_t = default_cache_dir())]
     pub cache_dir: PathBuf,
     /// Parent of unique run directories; existing results are never overwritten.
     #[arg(long, global = true, default_value = "artifacts")]
     pub out_dir: PathBuf,
     #[arg(long, global = true)]
     pub offline: bool,
+}
+fn default_cache_dir() -> PathBuf {
+    std::env::var_os("XTASK_CACHE_DIR")
+        .map(PathBuf::from)
+        .unwrap_or_else(|| "target/xtask-cache".into())
 }
 impl Common {
     pub fn resolve(&mut self, root: &Path) {

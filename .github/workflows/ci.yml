@@ -23,6 +23,8 @@ concurrency:
 env:
   CARGO_TERM_COLOR: always
   CARGO_INCREMENTAL: 0
+  # rust-cache prunes arbitrary files below target/ before saving its cache.
+  XTASK_CACHE_DIR: .xtask-cache
 
 jobs:
   lint:
@@ -107,7 +109,7 @@ jobs:
         if: runner.os == 'Windows'
         with:
           key: tests-${{ matrix.target }}
-          cache-directories: target/xtask-cache
+          cache-directories: .xtask-cache
       - name: Load shared cache access from Infisical (trusted jobs)
         if: (github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/tags/v')) && github.event_name != 'pull_request' && vars.INFISICAL_BUILD_IDENTITY_ID != ''
         shell: pwsh
@@ -179,7 +181,7 @@ jobs:
         if: runner.os == 'Windows'
         with:
           key: build-${{ matrix.os }}
-          cache-directories: target/xtask-cache
+          cache-directories: .xtask-cache
       - name: Load shared cache access from Infisical (trusted jobs)
         if: (github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/tags/v')) && github.event_name != 'pull_request' && vars.INFISICAL_BUILD_IDENTITY_ID != ''
         shell: pwsh

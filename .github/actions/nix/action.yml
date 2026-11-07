@@ -28,6 +28,7 @@ runs:
       shell: bash
       run: |
         mkdir -p .compiler-cache
+        echo "XTASK_CACHE_DIR=.xtask-cache" >> "$GITHUB_ENV"
         nix develop .#ci --profile .compiler-cache/nix-ci-profile -c bash -c '
           dirname "$(command -v rustc)" >> "$GITHUB_PATH"
           echo "PARKOUR_NIX_RUSTC=$PARKOUR_NIX_RUSTC" >> "$GITHUB_ENV"
@@ -36,4 +37,4 @@ runs:
     - uses: Swatinem/rust-cache@d1527c8f67ef9af357290475d4af4b0fab8f12e0
       with:
         key: nix-${{ github.job }}-${{ hashFiles('flake.lock', 'flake.nix', 'nix/*.nix', 'tools/xtask/tools.lock.json') }}
-        cache-directories: target/xtask-cache
+        cache-directories: .xtask-cache

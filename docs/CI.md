@@ -44,6 +44,9 @@ cargo xtask ci --targets linux-x64 --coverage
 
 Common options: `--jobs 2`, `--cache-dir target/xtask-cache`,
 `--out-dir artifacts`, `--offline`. Paths are relative to the repository.
+`XTASK_CACHE_DIR` changes the default download cache; an explicit `--cache-dir`
+takes precedence. CI uses `.xtask-cache`, outside Cargo's `target/` directory,
+because `rust-cache` removes non-Cargo files below `target/` before saving.
 Every invocation creates a unique run directory; reports are never overwritten.
 `report` is the explicit exception: it regenerates the summary of an existing
 run from its recorded statuses and JUnit files without executing tests.
