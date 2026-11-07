@@ -60,7 +60,10 @@ pub fn variable(ctx: &Context, repos: &Repositories, name: &str, input: Output<P
         ],
     );
 }
-pub fn register(ctx: &Context) -> pulumi::Result<Option<Repositories>> {
+pub fn register(
+    ctx: &Context,
+    cache_writer: Option<&crate::cache_access::Writer>,
+) -> pulumi::Result<Option<Repositories>> {
     if ctx.config().get("enableGitHub").as_deref() != Some("true") {
         return Ok(None);
     }
@@ -242,7 +245,7 @@ pub fn register(ctx: &Context) -> pulumi::Result<Option<Repositories>> {
         value(format!("{}/{}", repos.owner, assets_name)),
     );
     variable(ctx, &repos, "INFISICAL_SONAR_ENABLED", value("false"));
-    crate::github_credentials::register(ctx, &repos, &environment, &key)?;
+    crate::github_credentials::register(ctx, &repos, &environment, &key, cache_writer)?;
     resource(
         ctx,
         &repos.provider,

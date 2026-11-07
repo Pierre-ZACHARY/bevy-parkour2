@@ -1,4 +1,7 @@
 {
+    // macOS/Linux with Nix: mkhl.direnv loads .envrc (nix develop) and restarts
+    // the extensions so rust-analyzer, CodeLLDB and tasks see its toolchain.
+    "direnv.restart.automatic": true,
     "rust-analyzer.cargo.extraEnv": { "CARGO_INCREMENTAL": "0" },
     "terminal.integrated.env.windows": {
         "PATH": "${workspaceFolder}\\.compiler-cache\\bin;${env:PATH}",

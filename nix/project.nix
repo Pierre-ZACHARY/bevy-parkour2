@@ -197,6 +197,60 @@ let
     ];
   };
   sccache = pinnedTool "sccache";
+  cachePython = pkgs.python3.withPackages (ps: [ ps.boto3 ]);
+  # Nixpkgs stops at 0.44.2; the project scripts need 0.45.2+ (`sm secrets
+  # export --format`). Official release archives, hashes from the GitHub release.
+  infisical =
+    let
+      version = "0.45.4";
+      asset =
+        {
+          aarch64-darwin = {
+            name = "darwin_arm64";
+            sha256 = "2c44c652b896d5d845abad46348b0b94af1b7be8846491a2501e92e2da43e257";
+          };
+          x86_64-linux = {
+            name = "linux_amd64";
+            sha256 = "107389f4c9a0cc48023a834bb2a5bf1280c0a0e45ea7a98d13807d4def21b0a5";
+          };
+          aarch64-linux = {
+            name = "linux_arm64";
+            sha256 = "fcfd91de70efdedc7f8c1b1d90a024b433bb185387fe32467d49625a3bf55379";
+          };
+        }
+        .${system};
+    in
+    pkgs.stdenv.mkDerivation {
+      pname = "infisical";
+      inherit version;
+      src = pkgs.fetchurl {
+        url = "https://github.com/Infisical/cli/releases/download/v${version}/cli_${version}_${asset.name}.tar.gz";
+        inherit (asset) sha256;
+      };
+      sourceRoot = ".";
+      nativeBuildInputs = lib.optional isLinux pkgs.autoPatchelfHook;
+      dontBuild = true;
+      # Keep the release's Apple code signature intact.
+      dontStrip = isDarwin;
+      installPhase = ''
+        runHook preInstall
+        install -Dm755 infisical "$out/bin/infisical"
+        runHook postInstall
+      '';
+    };
+  # Usable before the dev shell exists (see .envrc): pulls its missing inputs
+  # from the private OVH cache with the caller's Infisical login.
+  nixCache = pkgs.writeShellApplication {
+    name = "nix-cache";
+    runtimeInputs = [
+      cachePython
+      infisical
+    ];
+    text = ''
+      root=$(${pkgs.git}/bin/git rev-parse --show-toplevel)
+      exec python3 -I "$root/tools/nix-cache.py" "$@"
+    '';
+  };
 
   cli =
     name: version: sha256: extra:
@@ -292,7 +346,7 @@ let
             rustup
             nixfmt
             actionlint
-            (python3.withPackages (ps: [ ps.boto3 ]))
+            cachePython
           ]
           ++ lib.optionals interactive [
             dioxus
@@ -340,6 +394,7 @@ in
       jd
       ;
     game-deps = cargoArtifacts;
+    nix-cache = nixCache;
   }
   // lib.optionalAttrs isLinux { mesa = pkgs.mesa; }
   // lib.optionalAttrs hasEditor { inherit jackdaw; };

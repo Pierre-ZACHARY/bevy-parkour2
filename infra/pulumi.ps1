@@ -14,7 +14,7 @@ if ($OvhBootstrap) {
     $optionalNames = @()
 } else {
     $names = @('OVH_CLIENT_ID','OVH_CLIENT_SECRET','SENTRY_AUTH_TOKEN','SONAR_TOKEN')
-    $optionalNames = @('SENTRY_RELEASE_TOKEN')
+    $optionalNames = @('SENTRY_RELEASE_TOKEN','NIX_CACHE_SIGNING_KEY')
 }
 $saved = @{}
 $authNames = @('OVH_APPLICATION_KEY','OVH_APPLICATION_SECRET','OVH_CONSUMER_KEY','OVH_CLIENT_ID','OVH_CLIENT_SECRET','OVH_ACCESS_TOKEN','OVH_PROFILE')
@@ -47,7 +47,7 @@ try {
         $env:INFISICAL_AUTH_METHOD = 'token'
     }
     $env:PULUMI_BACKEND_URL = 'https://api.pulumi.com'
-    $env:PATH = (Join-Path $PSScriptRoot '.tools\bin') + [IO.Path]::PathSeparator + $env:PATH
+    $env:PATH = (Join-Path $PSScriptRoot '.tools/bin') + [IO.Path]::PathSeparator + $env:PATH
     if (-not $PulumiArgs) { $PulumiArgs = @('preview') }
     & pulumi --cwd $workingDirectory @PulumiArgs
     if ($LASTEXITCODE -ne 0) { throw "Pulumi exited with code $LASTEXITCODE" }

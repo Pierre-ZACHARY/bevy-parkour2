@@ -126,6 +126,30 @@ owner stack (review its deletion protection), publish the new credentials and
 revoke the old account/policy; then rerun the operational preview. No credential
 or stack YAML is committed, including encrypted stack config.
 
+## CI cache writer
+
+GitHub runners populate sccache and the signed Nix cache with a dedicated OVH
+user. Only the owner key can create Public Cloud users, so this is two steps:
+
+1. The owner bootstrap stack creates `cache-ci-writer` (role
+   `objectstore_operator`) and exports `cacheWriterUserId`.
+2. Set that ID in the operational stack (`pulumi config set cacheWriterUserId
+   <id>`). The stack then creates its S3 key and policy (Get/Put/AbortMultipart
+   on `bevy-parkour2/v1/*`, `*.narinfo`, `nar/*`; Get on `nix-cache-info`;
+   ListBucket so absent keys are 404s for Nix; no Delete), and writes
+   `OVH_CACHE_WRITER_ACCESS_KEY_ID`, `OVH_CACHE_WRITER_SECRET_ACCESS_KEY` and
+   `NIX_CACHE_SIGNING_KEY` into the `build` and `release` GitHub environments.
+   `pulumi.ps1` loads the signing key from Infisical infrastructure; the
+   program checks it matches `nix/cache-public-key`.
+
+Run `pulumi.ps1` with the usual provisioning `GITHUB_TOKEN`: the stack also
+manages `INFRA_GH_TOKEN` from that variable, so another token would replace it.
+
+`pulumi config refresh` restores the configuration of the latest stack
+operation. A `pulumi refresh` records none, so after one, restoring returns
+`{}`; rebuild the ignored stack file from the last `update` in
+`pulumi stack history --json`, or run an update so the next refresh has it.
+
 ## Existing bucket adoption
 
 The program imports the existing bucket using `<projectId>/<region>/<bucketName>`

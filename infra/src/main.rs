@@ -113,11 +113,15 @@ fn main() {
         } else {
             None
         };
+        // Set from the bootstrap stack output once its owner has created the user.
+        let cache_writer = config.get("cacheWriterUserId").map(|user| {
+            cache_access::register_writer(&ctx, &provider, &project, &bucket_name, &user)
+        });
         cache_config::export(&ctx, &bucket_name)?;
         ctx.export("bucketName", value(bucket_name));
         sentry::register(&ctx)?;
         sonar::register(&ctx)?;
-        let repositories = github::register(&ctx)?;
+        let repositories = github::register(&ctx, cache_writer.as_ref())?;
         infisical::register(&ctx, cache_reader.as_ref(), repositories.as_ref())?;
         Ok(())
     });

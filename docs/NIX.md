@@ -17,6 +17,24 @@ la racine du clone :
 nix develop
 ```
 
+### direnv et VS Code
+
+Le dépôt contient un `.envrc` pour [nix-direnv](https://github.com/nix-community/nix-direnv)
+(3.0.6+, sinon téléchargé avec vérification de hash). Après `direnv allow`, entrer
+dans le clone charge `nix develop .#default` ; le résultat est mis en cache dans
+`.direnv/` et protégé du GC, donc la réouverture est immédiate. Dans VS Code,
+l'extension recommandée `mkhl.direnv` charge le même environnement et redémarre
+les extensions (`direnv.restart.automatic`) : rust-analyzer, CodeLLDB, tâches et
+terminaux utilisent alors la toolchain Nix.
+
+Quand les entrées Nix changent (flake, `nix/`, toolchain, verrous d'outils),
+`.envrc` récupère d'abord, en lecture seule, les entrées du shell déjà publiées
+par la CI dans le cache OVH (`nix run .#nix-cache -- pull --inputs ...`), avec le
+login Infisical de l'utilisateur. Sans login ou sans entrée publiée, le shell se
+construit normalement depuis cache.nixos.org. `PARKOUR_OVH_PULL=0` dans
+`.envrc.local` (ignoré par Git) désactive cette étape ; `rm .direnv/ovh-pull-*`
+la relance. Premier shell macOS ARM sans cache OVH mesuré : 16 min 37 s.
+
 Sur une modification non encore commitée, Nix doit voir les nouveaux fichiers
 dans Git : `git add -N flake.nix flake.lock nix tools/xtask/src/toolchain.rs`
 permet de les exposer sans en indexer le contenu. Sous WSL, utiliser un clone
@@ -248,10 +266,23 @@ Pour un Nix multi-utilisateur, l'administrateur doit ajouter la clé publique de
 recharger son daemon. Un utilisateur Nix autorisé peut aussi transmettre cette
 clé via `--extra-trusted-public-keys`. La vérification des signatures reste active.
 Le helper `pull` prépare les sorties avant le build ; l'environnement Nix reste
-accessible sans connexion au bucket. Les jobs de build Linux/macOS sur `main`
-et les tags `v*` tentent cette restauration avec leur identité Infisical lecteur.
-La publication OVH reste réservée aux mainteneurs ; les jobs sauvegardent
-également leurs caches Nix/Cargo dans GitHub.
+accessible sans connexion au bucket. `pull --inputs <shell>` récupère les entrées
+manquantes d'un shell avant sa construction ; `nix run .#nix-cache -- ...` fournit
+le helper, Python/boto3 et Infisical 0.45.4 sans entrer dans le shell.
+
+Les runners GitHub publient les deux caches. Les environnements GitHub `build`
+et `release` (main, tags `v*` et branches autorisées par le propriétaire)
+reçoivent de Pulumi les secrets `OVH_CACHE_WRITER_ACCESS_KEY_ID`,
+`OVH_CACHE_WRITER_SECRET_ACCESS_KEY` et `NIX_CACHE_SIGNING_KEY`. Ces jobs passent
+sccache en `READ_WRITE`, restaurent les sorties Crane, puis signent et publient
+avec `nix-cache.py push` : profil du shell CI, `game` et `game-deps` ; le job
+Apple Silicon publie aussi le profil du shell complet (Dioxus, Jackdaw, SDK) et
+les tests xtask. Un cache binaire n'accepte un chemin que si ses références y
+sont déjà : les closures complètes sont donc publiées, en zstd ; les chemins
+déjà présents ne sont pas renvoyés. Les pull requests ne reçoivent aucun secret.
+L'utilisateur OVH `cache-ci-writer` peut lire, écrire et lister le cache, sans
+suppression. Les collaborateurs gardent l'identité Infisical en lecture seule.
+Les jobs sauvegardent également leurs caches Nix/Cargo dans GitHub.
 
 Aucun secret ni asset privé ne doit entrer dans une dérivation publiée.
 La propagation d'une modification de politique OVH peut être différée : vérifier

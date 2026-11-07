@@ -104,3 +104,86 @@ pub fn register(ctx: &Context, provider: &Resource, project: &str, bucket: &str)
         policy,
     }
 }
+
+/// GitHub runners populate both caches. The user itself is created by the
+/// owner-only bootstrap stack; this stack may only manage its key and policy.
+pub struct Writer {
+    pub credentials: Resource,
+    pub policy: Resource,
+}
+
+pub fn register_writer(
+    ctx: &Context,
+    provider: &Resource,
+    project: &str,
+    bucket: &str,
+    user_id: &str,
+) -> Writer {
+    let credentials = ctx.register_resource(RegisterRequest {
+        type_: "ovh:index/cloudProjectUserS3Credential:CloudProjectUserS3Credential".into(),
+        name: "cache-ci-writer".into(),
+        custom: true,
+        version: OVH_VERSION.into(),
+        inputs: vec![
+            ("serviceName".into(), value(project)),
+            ("userId".into(), value(user_id)),
+        ],
+        options: ResourceOptions {
+            provider: Some(provider.clone()),
+            protect: Some(true),
+            additional_secret_outputs: vec!["accessKeyId".into(), "secretAccessKey".into()],
+            ..Default::default()
+        },
+        package: Some(ovh_package()),
+        ..Default::default()
+    });
+    let prefix = ctx
+        .config()
+        .get("cachePrefix")
+        .unwrap_or_else(|| "bevy-parkour2/v1/".into());
+    // Listing turns absent keys into 404s: Nix aborts `nix copy` on the 403
+    // that OVH returns without it. No DeleteObject: a leaked runner key can add
+    // entries (Nix ones must still carry a trusted signature) but not erase.
+    let policy = serde_json::json!({"Statement":[{
+        "Sid":"ListCacheBucket", "Effect":"Allow", "Action":["s3:ListBucket"],
+        "Resource":[format!("arn:aws:s3:::{bucket}")]
+    }, {
+        "Sid":"ReadWriteCompilerCache", "Effect":"Allow",
+        "Action":["s3:GetObject","s3:PutObject","s3:AbortMultipartUpload"],
+        "Resource":[format!("arn:aws:s3:::{bucket}/{prefix}*")]
+    }, {
+        "Sid":"ReadNixCacheInfo", "Effect":"Allow", "Action":["s3:GetObject"],
+        "Resource":[format!("arn:aws:s3:::{bucket}/nix-cache-info")]
+    }, {
+        "Sid":"ReadWriteNixCache", "Effect":"Allow",
+        "Action":["s3:GetObject","s3:PutObject","s3:AbortMultipartUpload"],
+        "Resource":[
+            format!("arn:aws:s3:::{bucket}/*.narinfo"),
+            format!("arn:aws:s3:::{bucket}/nar/*")
+        ]
+    }]})
+    .to_string();
+    let policy = ctx.register_resource(RegisterRequest {
+        type_: "ovh:index/cloudProjectUserS3Policy:CloudProjectUserS3Policy".into(),
+        name: "cache-ci-writer".into(),
+        custom: true,
+        version: OVH_VERSION.into(),
+        inputs: vec![
+            ("serviceName".into(), value(project)),
+            ("userId".into(), value(user_id)),
+            ("policy".into(), value(policy)),
+        ],
+        options: ResourceOptions {
+            provider: Some(provider.clone()),
+            protect: Some(true),
+            depends_on: vec![credentials.clone()],
+            ..Default::default()
+        },
+        package: Some(ovh_package()),
+        ..Default::default()
+    });
+    Writer {
+        credentials,
+        policy,
+    }
+}

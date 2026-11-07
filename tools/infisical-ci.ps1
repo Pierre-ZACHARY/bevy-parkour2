@@ -30,7 +30,7 @@ switch ($Scope) {
         $project=$config.infraProjectId
         $names=@('OVH_CLIENT_ID','OVH_CLIENT_SECRET','SENTRY_AUTH_TOKEN','SONAR_TOKEN')
         if (-not $env:PULUMI_ACCESS_TOKEN) { $names += 'PULUMI_ACCESS_TOKEN' }
-        $optionalNames=@('SENTRY_RELEASE_TOKEN')
+        $optionalNames=@('SENTRY_RELEASE_TOKEN','NIX_CACHE_SIGNING_KEY')
     }
 }
 try {

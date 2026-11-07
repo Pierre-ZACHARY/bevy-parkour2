@@ -49,6 +49,25 @@ jobs:
         if: (github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/tags/v')) && github.event_name != 'pull_request' && vars.INFISICAL_BUILD_IDENTITY_ID != ''
         shell: pwsh
         run: ./tools/infisical-ci.ps1 -Scope cache -IdentityId '${{ vars.INFISICAL_BUILD_IDENTITY_ID }}' -VerifyIsolation
+      - name: Enable shared OVH cache writes (trusted environments)
+        # build/release environment secrets, managed by Pulumi; PRs get none.
+        if: github.event_name != 'pull_request'
+        shell: bash
+        env:
+          WRITER_ACCESS_KEY_ID: ${{ secrets.OVH_CACHE_WRITER_ACCESS_KEY_ID }}
+          WRITER_SECRET_ACCESS_KEY: ${{ secrets.OVH_CACHE_WRITER_SECRET_ACCESS_KEY }}
+        run: |
+          if [ -z "$WRITER_ACCESS_KEY_ID" ] || [ -z "$WRITER_SECRET_ACCESS_KEY" ]; then
+            echo "No OVH cache writer in this environment; caches stay read-only/local."
+            exit 0
+          fi
+          {
+            echo "AWS_ACCESS_KEY_ID=$WRITER_ACCESS_KEY_ID"
+            echo "AWS_SECRET_ACCESS_KEY=$WRITER_SECRET_ACCESS_KEY"
+            echo "SCCACHE_S3_RW_MODE=READ_WRITE"
+            echo "PARKOUR_OVH_CACHE_WRITER=1"
+          } >> "$GITHUB_ENV"
+          echo "sccache and Nix publication write to the shared OVH cache."
       - run: nix flake check --all-systems --no-build
       - run: nix develop .#ci -c cargo xtask lint
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
@@ -114,6 +133,25 @@ jobs:
         if: (github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/tags/v')) && github.event_name != 'pull_request' && vars.INFISICAL_BUILD_IDENTITY_ID != ''
         shell: pwsh
         run: ./tools/infisical-ci.ps1 -Scope cache -IdentityId '${{ vars.INFISICAL_BUILD_IDENTITY_ID }}'
+      - name: Enable shared OVH cache writes (trusted environments)
+        # build/release environment secrets, managed by Pulumi; PRs get none.
+        if: github.event_name != 'pull_request'
+        shell: bash
+        env:
+          WRITER_ACCESS_KEY_ID: ${{ secrets.OVH_CACHE_WRITER_ACCESS_KEY_ID }}
+          WRITER_SECRET_ACCESS_KEY: ${{ secrets.OVH_CACHE_WRITER_SECRET_ACCESS_KEY }}
+        run: |
+          if [ -z "$WRITER_ACCESS_KEY_ID" ] || [ -z "$WRITER_SECRET_ACCESS_KEY" ]; then
+            echo "No OVH cache writer in this environment; caches stay read-only/local."
+            exit 0
+          fi
+          {
+            echo "AWS_ACCESS_KEY_ID=$WRITER_ACCESS_KEY_ID"
+            echo "AWS_SECRET_ACCESS_KEY=$WRITER_SECRET_ACCESS_KEY"
+            echo "SCCACHE_S3_RW_MODE=READ_WRITE"
+            echo "PARKOUR_OVH_CACHE_WRITER=1"
+          } >> "$GITHUB_ENV"
+          echo "sccache and Nix publication write to the shared OVH cache."
       - name: Set up project compiler cache
         if: runner.os == 'Windows'
         shell: pwsh
@@ -186,12 +224,39 @@ jobs:
         if: (github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/tags/v')) && github.event_name != 'pull_request' && vars.INFISICAL_BUILD_IDENTITY_ID != ''
         shell: pwsh
         run: ./tools/infisical-ci.ps1 -Scope cache -IdentityId '${{ vars.INFISICAL_BUILD_IDENTITY_ID }}'
+      - name: Enable shared OVH cache writes (trusted environments)
+        # build/release environment secrets, managed by Pulumi; PRs get none.
+        if: github.event_name != 'pull_request'
+        shell: bash
+        env:
+          WRITER_ACCESS_KEY_ID: ${{ secrets.OVH_CACHE_WRITER_ACCESS_KEY_ID }}
+          WRITER_SECRET_ACCESS_KEY: ${{ secrets.OVH_CACHE_WRITER_SECRET_ACCESS_KEY }}
+        run: |
+          if [ -z "$WRITER_ACCESS_KEY_ID" ] || [ -z "$WRITER_SECRET_ACCESS_KEY" ]; then
+            echo "No OVH cache writer in this environment; caches stay read-only/local."
+            exit 0
+          fi
+          {
+            echo "AWS_ACCESS_KEY_ID=$WRITER_ACCESS_KEY_ID"
+            echo "AWS_SECRET_ACCESS_KEY=$WRITER_SECRET_ACCESS_KEY"
+            echo "SCCACHE_S3_RW_MODE=READ_WRITE"
+            echo "PARKOUR_OVH_CACHE_WRITER=1"
+          } >> "$GITHUB_ENV"
+          echo "sccache and Nix publication write to the shared OVH cache."
       - name: Restore signed Crane outputs from OVH
-        if: runner.os != 'Windows' && (github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/tags/v')) && vars.INFISICAL_BUILD_IDENTITY_ID != ''
+        if: runner.os != 'Windows' && (env.PARKOUR_OVH_CACHE_WRITER == '1' || ((github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/tags/v')) && vars.INFISICAL_BUILD_IDENTITY_ID != ''))
         run: nix develop .#ci -c python3 tools/nix-cache.py pull .#game .#game-deps
       - name: Build the cached Crane release derivation
         if: runner.os != 'Windows'
         run: nix build .#game .#game-deps --print-build-logs
+      - name: Publish signed Nix outputs to OVH
+        # The CI shell profile and Crane outputs, with their full closures:
+        # a binary cache only accepts paths whose references it already holds.
+        if: ${{ !cancelled() && runner.os != 'Windows' && env.PARKOUR_OVH_CACHE_WRITER == '1' }}
+        continue-on-error: true
+        env:
+          NIX_CACHE_SIGNING_KEY: ${{ secrets.NIX_CACHE_SIGNING_KEY }}
+        run: nix develop .#ci -c python3 tools/nix-cache.py push .compiler-cache/nix-ci-profile .#game .#game-deps
       - name: Set up project compiler cache
         if: runner.os == 'Windows'
         shell: pwsh

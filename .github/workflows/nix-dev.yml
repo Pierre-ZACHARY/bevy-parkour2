@@ -33,12 +33,33 @@ concurrency:
 jobs:
   dev-shell:
     runs-on: macos-15
+    # main pushes and owner-authorized manual runs receive the OVH cache writer.
+    environment: ${{ github.event_name != 'pull_request' && (github.ref == 'refs/heads/main' || github.event_name == 'workflow_dispatch') && 'build' || 'public-checks' }}
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
         with:
           lfs: false
           persist-credentials: false
       - uses: ./.github/actions/nix
+      - name: Enable shared OVH cache writes (trusted environments)
+        # build/release environment secrets, managed by Pulumi; PRs get none.
+        if: github.event_name != 'pull_request'
+        shell: bash
+        env:
+          WRITER_ACCESS_KEY_ID: ${{ secrets.OVH_CACHE_WRITER_ACCESS_KEY_ID }}
+          WRITER_SECRET_ACCESS_KEY: ${{ secrets.OVH_CACHE_WRITER_SECRET_ACCESS_KEY }}
+        run: |
+          if [ -z "$WRITER_ACCESS_KEY_ID" ] || [ -z "$WRITER_SECRET_ACCESS_KEY" ]; then
+            echo "No OVH cache writer in this environment; caches stay read-only/local."
+            exit 0
+          fi
+          {
+            echo "AWS_ACCESS_KEY_ID=$WRITER_ACCESS_KEY_ID"
+            echo "AWS_SECRET_ACCESS_KEY=$WRITER_SECRET_ACCESS_KEY"
+            echo "SCCACHE_S3_RW_MODE=READ_WRITE"
+            echo "PARKOUR_OVH_CACHE_WRITER=1"
+          } >> "$GITHUB_ENV"
+          echo "sccache and Nix publication write to the shared OVH cache."
       - name: Validate the Apple Silicon development shell
         run: |
           nix develop .#default --profile .compiler-cache/nix-dev-profile -c sh -ec '
@@ -54,3 +75,10 @@ jobs:
           '
       - name: Build the native Crane release and run isolated xtask checks
         run: nix build .#game .#game-deps .#checks.aarch64-darwin.xtask --print-build-logs
+      - name: Publish the signed Apple Silicon shell and Crane outputs to OVH
+        # Lets collaborators' .envrc fetch Dioxus, Jackdaw and the toolchains.
+        if: ${{ !cancelled() && env.PARKOUR_OVH_CACHE_WRITER == '1' }}
+        continue-on-error: true
+        env:
+          NIX_CACHE_SIGNING_KEY: ${{ secrets.NIX_CACHE_SIGNING_KEY }}
+        run: nix develop .#ci -c python3 tools/nix-cache.py push .compiler-cache/nix-dev-profile .compiler-cache/nix-ci-profile .#game .#game-deps .#checks.aarch64-darwin.xtask

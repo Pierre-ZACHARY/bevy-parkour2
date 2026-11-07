@@ -7,9 +7,10 @@ $tools = Join-Path $PSScriptRoot '.tools'
 $source = Join-Path $tools "pulumi-rust-$revision"
 $bin = Join-Path $tools 'bin'
 New-Item -ItemType Directory -Force $tools, $bin | Out-Null
-if (-not (Test-Path (Join-Path $source 'sdk\rust\pulumi\Cargo.toml'))) {
+if (-not (Test-Path (Join-Path $source 'sdk/rust/pulumi/Cargo.toml'))) {
     $archive = Join-Path $tools 'pulumi-rust.zip'
-    & curl.exe --fail --location --silent --show-error "https://codeload.github.com/pulumi-labs/pulumi-rust/zip/$revision" -o $archive
+    $curl = if ($IsWindows) { 'curl.exe' } else { 'curl' }
+    & $curl --fail --location --silent --show-error "https://codeload.github.com/pulumi-labs/pulumi-rust/zip/$revision" -o $archive
     if ($LASTEXITCODE -ne 0) { throw 'Cannot download Pulumi Rust sources' }
     if ((Get-FileHash -LiteralPath $archive -Algorithm SHA256).Hash.ToLowerInvariant() -ne $archiveHash) {
         throw 'Pulumi Rust archive checksum mismatch'
@@ -20,7 +21,7 @@ $oldToolchain = $env:GOTOOLCHAIN
 Push-Location (Join-Path $source 'pulumi-language-rust')
 try {
     $env:GOTOOLCHAIN = 'auto'
-    & go build -o (Join-Path $bin 'pulumi-language-rust.exe') .
+    & go build -o (Join-Path $bin ('pulumi-language-rust' + $(if ($IsWindows) { '.exe' } else { '' }))) .
     if ($LASTEXITCODE -ne 0) { throw 'Cannot build the Pulumi Rust language plugin' }
 } finally {
     $env:GOTOOLCHAIN = $oldToolchain

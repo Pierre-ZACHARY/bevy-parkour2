@@ -30,6 +30,7 @@ pub fn register(
     repos: &Repositories,
     infrastructure: &Resource,
     key: &Resource,
+    cache_writer: Option<&crate::cache_access::Writer>,
 ) -> pulumi::Result<()> {
     let provider = ctx.register_resource(RegisterRequest {
         type_: "pulumi:providers:pulumiservice".into(),
@@ -157,6 +158,56 @@ pub fn register(
                 ("secretName".into(), value("ASSETS_DEPLOY_KEY")),
                 ("value".into(), key.output("privateKeyOpenssh").as_secret()),
             ],
+        );
+    }
+    if let Some(writer) = cache_writer {
+        // Same main/tag (and owner-authorized branch) boundary as the assets
+        // key. Collaborators keep the Infisical read-only cache credentials.
+        let signing = std::env::var("NIX_CACHE_SIGNING_KEY").map_err(|_| {
+            pulumi::Error::new("missing NIX_CACHE_SIGNING_KEY from Infisical infrastructure")
+        })?;
+        let public: String = include_str!("../../nix/cache-public-key").trim().into();
+        let key_name = public.split(':').next().unwrap_or_default();
+        if !signing.starts_with(&format!("{key_name}:")) || signing.chars().any(char::is_control) {
+            return Err(pulumi::Error::new(
+                "NIX_CACHE_SIGNING_KEY does not belong to nix/cache-public-key (redacted)",
+            ));
+        }
+        for (name, environment) in [("build", &build), ("release", &release)] {
+            for (suffix, secret_name, value) in [
+                (
+                    "cache-writer-access",
+                    "OVH_CACHE_WRITER_ACCESS_KEY_ID",
+                    writer.credentials.output("accessKeyId"),
+                ),
+                (
+                    "cache-writer-secret",
+                    "OVH_CACHE_WRITER_SECRET_ACCESS_KEY",
+                    writer.credentials.output("secretAccessKey"),
+                ),
+                (
+                    "nix-cache-signing",
+                    "NIX_CACHE_SIGNING_KEY",
+                    Output::secret(PropertyValue::String(signing.clone())),
+                ),
+            ] {
+                github::resource(
+                    ctx,
+                    &repos.provider,
+                    "actionsEnvironmentSecret:ActionsEnvironmentSecret",
+                    &format!("{name}-{suffix}"),
+                    vec![
+                        ("repository".into(), repos.source.output("name")),
+                        ("environment".into(), environment.output("environment")),
+                        ("secretName".into(), crate::value(secret_name)),
+                        ("value".into(), value.as_secret()),
+                    ],
+                );
+            }
+        }
+        ctx.export(
+            "cacheWriterPolicyId",
+            writer.policy.id().cast::<PropertyValue>(),
         );
     }
     Ok(())

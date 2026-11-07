@@ -77,7 +77,7 @@ pub fn register(ctx: &Context) -> pulumi::Result<()> {
             ("allows".into(), Output::known(PropertyValue::Array(allows.iter().map(|action| PropertyValue::String(format!("publicCloudProject:apiovh:{action}"))).collect()))),
         ],
         options: ResourceOptions {
-            provider: Some(provider),
+            provider: Some(provider.clone()),
             protect: Some(true),
             ..Default::default()
         },
@@ -125,6 +125,37 @@ pub fn register(ctx: &Context) -> pulumi::Result<()> {
             ..Default::default()
         });
     }
+    // Creating a Public Cloud user needs this owner key: the runner client can
+    // only manage S3 keys and policies of existing users. The operational stack
+    // gives this user its scoped CI cache policy and key (cacheWriterUserId).
+    let writer = ctx.register_resource(RegisterRequest {
+        type_: "ovh:index/cloudProjectUser:CloudProjectUser".into(),
+        name: "cache-ci-writer".into(),
+        custom: true,
+        version: OVH_VERSION.into(),
+        inputs: vec![
+            ("serviceName".into(), value(&project)),
+            (
+                "description".into(),
+                value("bevy-parkour2 GitHub runners: compiler/Nix cache writer (no delete)"),
+            ),
+            (
+                "roleNames".into(),
+                Output::known(PropertyValue::Array(vec![PropertyValue::String(
+                    "objectstore_operator".into(),
+                )])),
+            ),
+        ],
+        options: ResourceOptions {
+            provider: Some(provider.clone()),
+            protect: Some(true),
+            additional_secret_outputs: vec!["password".into(), "openstackRc".into()],
+            ..Default::default()
+        },
+        package: Some(ovh_package()),
+        ..Default::default()
+    });
+    ctx.export("cacheWriterUserId", writer.id().cast::<PropertyValue>());
     ctx.export("ovhRunnerIdentity", client.output("identity"));
     ctx.export("ovhRunnerPolicyId", policy.id().cast::<PropertyValue>());
     Ok(())

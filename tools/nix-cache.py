@@ -2,6 +2,7 @@
 """Copy signed Crane outputs to/from the private OVH binary cache.
 
 Run inside `nix develop`: python3 tools/nix-cache.py pull|push [.#game .#game-deps].
+Before the shell exists: nix run .#nix-cache -- pull --inputs .#devShells.<system>.default
 Downloads run in the client so multi-user Nix daemons need no AWS secret file.
 """
 
@@ -65,23 +66,52 @@ def store_path(item, env):
     return path
 
 
+def shell_inputs(item, env):
+    """Outputs a shell needs; CI publishes them in its `nix develop` profile closure."""
+    drv = run(["nix", "eval", "--raw", item + ".drvPath"], env=env, capture_output=True).stdout.strip()
+    shown = json.loads(run(["nix", "derivation", "show", drv], env=env, capture_output=True).stdout)
+    wanted = next(iter(shown.values()))["inputDrvs"]
+    if not wanted:
+        return []
+    shown = json.loads(run(["nix", "derivation", "show", *wanted], env=env, capture_output=True).stdout)
+    paths = []
+    for drv_path, info in shown.items():
+        key = drv_path if drv_path in wanted else "/nix/store/" + drv_path
+        for name in wanted.get(key, {}).get("outputs", []):
+            output = info["outputs"].get(name, {}).get("path")
+            if output:
+                paths.append(output if output.startswith("/nix/store/") else "/nix/store/" + output)
+    invalid = run(["nix-store", "--check-validity", "--print-invalid", *paths],
+                  env=env, capture_output=True).stdout.split()
+    return sorted(set(invalid))
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("mode", choices=("pull", "push"))
     parser.add_argument("installables", nargs="*", default=[".#game", ".#game-deps"])
     parser.add_argument("--to-store", help="Isolated destination store for a pull validation")
+    parser.add_argument("--inputs", action="store_true",
+                        help="pull: fetch the missing inputs of shell installables instead of their outputs")
     parser.add_argument("--report", type=Path)
     args = parser.parse_args()
     if args.to_store and args.mode != "pull":
         parser.error("--to-store is only supported by pull")
+    if args.inputs and args.mode != "pull":
+        parser.error("--inputs is only supported by pull")
     config = json.loads((ROOT / "nix/cache-config.json").read_text())
     metadata = json.loads((ROOT / "tools/infisical-config.json").read_text())
     public_key = (ROOT / "nix/cache-public-key").read_text().strip()
     env = credentials(args.mode, metadata)
-    paths = [store_path(item, env) for item in args.installables]
-    url = "s3://" + config["bucket"] + "?" + urlencode({
-        "region": config["region"], "scheme": "https", "endpoint": config["endpoint"],
-    })
+    if args.inputs:
+        paths = sorted({path for item in args.installables for path in shell_inputs(item, env)})
+    else:
+        paths = [store_path(item, env) for item in args.installables]
+    settings = {"region": config["region"], "scheme": "https", "endpoint": config["endpoint"]}
+    if args.mode == "push":
+        # Faster than the xz default for the large Crane/SDK NARs; every Nix reads it.
+        settings["compression"] = "zstd"
+    url = "s3://" + config["bucket"] + "?" + urlencode(settings)
     report = {"mode": args.mode, "bucket": config["bucket"], "paths": [],
               "misses": [], "unavailable": [], "public_key": public_key}
     trusted = ["--extra-trusted-public-keys", public_key]
@@ -134,10 +164,15 @@ def main():
                     report["unavailable"].append({"path": path, "http_status": status})
                     continue
                 raise RuntimeError(f"OVH Nix metadata read failed: HTTP {status}") from None
-            destination = ["--to", args.to_store] if args.to_store else []
-            run(["nix", "copy", *trusted, "--from", url, *destination, path], env=env)
-            print(f"OVH Nix cache hit: {path}")
             report["paths"].append(path)
+        if report["paths"]:
+            # One transfer: Nix orders the closures and skips valid paths.
+            destination = ["--to", args.to_store] if args.to_store else []
+            run(["nix", "copy", *trusted, "--from", url, *destination, *report["paths"]], env=env)
+            for path in report["paths"]:
+                print(f"OVH Nix cache hit: {path}")
+        print(f"OVH Nix cache: {len(report['paths'])} hit(s), "
+              f"{len(report['misses']) + len(report['unavailable'])} miss(es) of {len(paths)}")
     if args.report:
         args.report.write_text(json.dumps(report, indent=2) + "\n")
 

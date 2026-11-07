@@ -38,7 +38,9 @@ profiles rotate hourly; idle daemons exit after ten minutes. Logout/revocation
 does not erase credentials already held by a running daemon; stop the project
 daemon if immediate local revocation is needed. Unavailable sessions retry after
 60 seconds; remove `.compiler-cache/infisical/unavailable` to retry immediately.
-Build-project credentials use READ_ONLY. Infrastructure members use their private
+Build-project credentials use READ_ONLY. Trusted GitHub jobs (build/release
+environments) switch to READ_WRITE with the Pulumi-managed `cache-ci-writer`
+key, which cannot delete objects. Infrastructure members use their private
 writer to populate the shared cache; this reads only those two keys and never
 grants collaborators infra access. Set `PROJECT_CACHE_ACCESS=read-only` to choose
 reader credentials explicitly. A build-only Viewer identity was verified to
