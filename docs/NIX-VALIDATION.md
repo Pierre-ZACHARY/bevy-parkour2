@@ -113,22 +113,42 @@ La couverture locale de la suite jeu a ensuite réussi avec les corrections :
 64 tests passent, 3 sont ignorés ; HTML, LCOV, JSON et doctests sont produits.
 Le répertoire instrumenté est supprimé après les rapports et son verrou reste
 extérieur à ce répertoire. Les 32 tests xtask et Clippy passent également.
+Les suites restantes ont ensuite passé leur couverture : xtask (32 réussis,
+5 ignorés), graph (90 réussis), asset-export (7 réussis), noodle (70 réussis).
+Au total, ces exécutions locales couvrent les cinq suites, avec 263 tests
+réussis, 8 ignorés, leurs rapports HTML/LCOV/JSON et les doctests applicables.
+Les traces finales sont dans `final-independent-coverage.log`,
+`final-xtask-coverage.log` et les répertoires `reports/*-coverage-final`.
 
 L'exécution suivante a révélé un problème de restauration du cache Windows :
 `rust-cache` supprime récursivement les fichiers non Cargo sous `target/`, y
 compris les reçus et outils téléchargés par xtask. La CI place désormais ces
 outils dans `.xtask-cache`, avec une configuration commune `XTASK_CACHE_DIR`.
 Le défaut local et la priorité de `--cache-dir` sont conservés et vérifiés.
+Sur Windows, deux exécutions natives de `cargo xtask test --suites xtask`
+passent ensuite, dont la seconde avec `--offline` : 32 tests réussis et
+5 ignorés à chaque passage, sans nouveau téléchargement au second lancement.
 
 Le support `aarch64-darwin`, ses outils et ses deux shells passent l'évaluation
 Nix. Le [job Apple Silicon](https://github.com/Pierre-ZACHARY/bevy-parkour2/actions/runs/42401948718)
 a exécuté le shell complet et vérifié les versions de Rust jeu/SDK,
 Dioxus CLI, Jackdaw CLI, Infisical, nextest, llvm-cov, wasm-bindgen et wasm-opt.
-La compilation release native Crane et les tests purs macOS restent en cours
-à ce stade. Les tests purs xtask Linux passent avec 32 tests réussis et
-5 ignorés. La dérivation de tests autorise les fixtures locales sur `127.0.0.1`
-dans le sandbox Darwin. L'ouverture de la fenêtre de l'éditeur sur macOS n'a
-pas été vérifiée ; la preuve graphique locale concerne Linux/WSLg.
+La compilation release native Crane et les tests purs macOS passent également.
+Une [seconde exécution](https://github.com/Pierre-ZACHARY/bevy-parkour2/actions/runs/42404570531),
+sur le commit contenant les corrections, restaure le store de la première,
+repasse ces vérifications et sauvegarde son nouveau cache avec succès.
+L'étape du shell complet prend alors environ 5 secondes, contre 20 minutes
+à froid ; la restauration initiale du cache est mesurée séparément.
+Les tests purs xtask Linux passent avec 32 tests réussis et 5 ignorés.
+La dérivation de tests autorise les fixtures locales sur `127.0.0.1` dans le
+sandbox Darwin. L'ouverture de la fenêtre de l'éditeur sur macOS n'a pas été
+vérifiée ; la preuve graphique locale concerne Linux/WSLg.
+
+L'exécution complète `42402743633` confirme aussi les 263 tests réussis et
+8 ignorés sous Linux ARM64, ses doctests, sa release Crane et son ZIP xtask.
+Le build/package Windows et le lint passent. Les autres jobs de cette matrice
+restent en cours à ce stade ; son échec de tests Windows concerne l'ancien
+emplacement du cache et précède le correctif validé localement ci-dessus.
 
 ## Traces locales
 
@@ -138,6 +158,10 @@ xtask complets sont dans
 `/home/pzachary/.cache/parkour-nix-validation-20261107/` sous Ubuntu-24.04.
 Ces chemins sont des artifacts locaux ignorés par Git, pas des fichiers requis
 par la flake.
+Les rapports Linux locaux portent le SHA de base du clone isolé, dont les
+fichiers modifiés ont été copiés depuis le worktree. `final-source-audit.json`
+confirme que les 16 fichiers modifiés d'exécution, Nix et outils correspondent
+octet pour octet à la branche publiée lors de ces dernières validations.
 
 Le [guide d'utilisation](NIX.md) décrit les commandes et la distinction entre
 store Nix, cache Cargo et sccache, ainsi que les limites de distribution des
