@@ -156,7 +156,7 @@ BEVY_ASSET_ROOT="$PWD" ./result/bin/bevy_parkour2
 # Compiler seulement les dépendances et les conserver via un GC root
 nix build .#game-deps --out-link result-deps
 
-# Évaluer tous les outputs sans compiler, pour les deux architectures
+# Évaluer tous les outputs sans compiler, pour les trois plateformes
 nix flake check --all-systems --no-build
 
 # Checks purs : release du jeu et tests unitaires de xtask
@@ -166,7 +166,7 @@ nix flake check
 Le lanceur du package Nix place temporairement l'exécutable à côté d'un lien
 vers les assets du clone, car le mode distribution cherche les assets à côté
 de son exécutable. Il nettoie ce répertoire à la sortie. Aucun asset licencié
-n'est copié dans le store ; le vrai ELF se trouve dans `result/libexec/`.
+n'est copié dans le store ; le binaire natif se trouve dans `result/libexec/`.
 
 Crane sépare les dépendances compilées (`game-deps`) du jeu (`game`). Un
 changement dans `src/` reconstruit le jeu en réutilisant les dépendances. Les

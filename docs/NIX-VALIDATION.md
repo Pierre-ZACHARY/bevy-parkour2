@@ -83,6 +83,15 @@ son `narHash`, ses références et sa taille NAR de 659 764 128 octets.
 Les fichiers de rapport sont `sccache-ovh-*.json`, `nix-ovh-push.json` et
 `nix-ovh-reader-*.json` dans les traces locales ignorées.
 
+Après les corrections finales de xtask, la release Linux a été reconstruite
+en 4 min 36 s. La sortie `game-deps` reste identique ; seule la dérivation du
+jeu est reconstruite. Sa publication signée ne transfère qu'un chemin vers
+OVH, les dépendances étant déjà présentes. Un nouveau store vide restaure
+ensuite les 48 chemins de sa closure avec l'identité lecteur et vérifie leurs
+signatures. Le SHA-256 du binaire restauré est identique à l'original :
+`9d36f9aa90affaf7ab9d3b4097ef727a8686d6d3d54643e34875da7115186c79`.
+Ces essais sont consignés dans `final-crane-release.log` et `final-nix-ovh-*`.
+
 La politique lecteur OVH `944578` a été étendue, avec accord explicite, aux
 seuls GET des objets Nix. La même politique est suivie dans
 `infra/src/cache_access.rs`, et son état Pulumi a été synchronisé par une
@@ -112,8 +121,14 @@ outils dans `.xtask-cache`, avec une configuration commune `XTASK_CACHE_DIR`.
 Le défaut local et la priorité de `--cache-dir` sont conservés et vérifiés.
 
 Le support `aarch64-darwin`, ses outils et ses deux shells passent l'évaluation
-Nix. La compilation native macOS avec Nix et les CLI Dioxus/Jackdaw sont vérifiées
-par le job macOS modifié ; l'évaluation depuis Linux ne prouve pas leur exécution.
+Nix. Le [job Apple Silicon](https://github.com/Pierre-ZACHARY/bevy-parkour2/actions/runs/42401948718)
+a exécuté le shell complet et vérifié les versions de Rust jeu/SDK,
+Dioxus CLI, Jackdaw CLI, Infisical, nextest, llvm-cov, wasm-bindgen et wasm-opt.
+La compilation release native Crane et les tests purs macOS restent en cours
+à ce stade. Les tests purs xtask Linux passent avec 32 tests réussis et
+5 ignorés. La dérivation de tests autorise les fixtures locales sur `127.0.0.1`
+dans le sandbox Darwin. L'ouverture de la fenêtre de l'éditeur sur macOS n'a
+pas été vérifiée ; la preuve graphique locale concerne Linux/WSLg.
 
 ## Traces locales
 
