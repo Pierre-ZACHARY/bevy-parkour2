@@ -357,6 +357,8 @@ in
       cargoExtraArgs = "--locked -p xtask";
       CARGO_PROFILE = "ci";
       nativeBuildInputs = [ pkgs.git ];
+      # Cache/download tests serve local fixtures on 127.0.0.1.
+      __darwinAllowLocalNetworking = isDarwin;
     };
   };
 }
