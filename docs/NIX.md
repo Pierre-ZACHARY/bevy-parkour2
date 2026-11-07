@@ -1,11 +1,12 @@
 # Travailler avec Nix et Crane
 
-La flake fournit Linux x86_64 et ARM64, avec le même environnement pour les
-collaborateurs et les runners GitHub Linux. Windows conserve son installation
-native ; utiliser une distribution WSL2 pour Nix. macOS n'est pas exposé par
-cette première flake. Les runners macOS et Windows conservent leur setup actuel.
+La flake fournit Linux x86_64, Linux ARM64 et macOS Apple Silicon
+(`aarch64-darwin`), avec le même environnement pour les collaborateurs et les
+runners GitHub Linux/macOS. Windows conserve son installation native ; utiliser
+une distribution WSL2 pour Nix.
 Le bundle officiel Jackdaw/SDK n'existe pas pour Linux ARM64 à cette version :
-l'éditeur est fourni sur x86_64 ; ARM64 dispose du jeu, de Dioxus et des outils CI.
+l'éditeur est fourni sur Linux x86_64 et macOS ARM64. Linux ARM64 dispose du jeu,
+de Dioxus et des outils CI.
 
 ## Première utilisation
 
@@ -23,12 +24,14 @@ Git créé depuis Linux ; un worktree Windows avec un `.git` pointant vers `C:/.
 ne se comporte pas comme un clone Linux.
 
 Le premier démarrage peut être long : Dioxus CLI **0.7.2** est compilé puis
-conservé dans le store. Sur x86_64, le bundle officiel Jackdaw/jd/SDK
-**0.20.1-rc.1** est téléchargé avec vérification SHA-256 et adapté à NixOS,
+conservé dans le store. Sur Linux x86_64 et macOS ARM64, le bundle officiel Jackdaw/jd/SDK
+**0.20.1-rc.1** est téléchargé avec vérification SHA-256 et adapté au store Nix,
 avec ses extensions Physics/Navmesh. Le shell
 contient Rust **1.97.1**, rustfmt, Clippy, rust-analyzer, rust-src, LLVM coverage,
 la cible wasm32, les compilateurs C/C++, Clang **22** pour le WebGPU, les
-bibliothèques Bevy Linux, Git/LFS, PowerShell, Node et Java. Nextest, llvm-cov,
+bibliothèques Bevy propres à la plateforme, Git/LFS, Infisical, PowerShell, Node
+et Java. macOS utilise le SDK Apple de Nixpkgs et un déploiement minimum macOS 13.
+Nextest, llvm-cov,
 wasm-bindgen, wasm-opt et sccache reprennent les versions et SHA-256 du projet.
 La cible wasm utilise Clang/llvm-ar directement : le wrapper natif Nix ajoute
 des options de durcissement Linux que le backend wasm ne prend pas en charge.
@@ -41,6 +44,12 @@ Le SDK Jackdaw utilise Rust **1.99.0**, également fourni par Nix. Un dispatch
 sélectionne ce compilateur quand le SDK le demande, et garde **1.97.1** pour le
 jeu. La façade sccache respecte ce choix.
 
+Le workflow [Nix Apple Silicon](../.github/workflows/nix-dev.yml) vérifie le shell
+complet, les versions des deux compilateurs et le démarrage des CLI sur un
+runner macOS ARM, puis construit le jeu et les dépendances Crane et exécute
+les tests xtask purs. Il se déclenche sur les changements de la flake et de ses
+outils, sans assets privés ni secrets de build.
+
 Les assets privés restent soumis à [l'accès au dépôt d'assets](GITHUB.md).
 Dans le shell, après obtention de cet accès :
 
@@ -51,7 +60,7 @@ pwsh -NoProfile -File tools/setup_assets.ps1
 ```
 
 La flake du jeu contient le binaire, pas les assets licenciés. Pour accéder au
-cache sccache OVH, installer le CLI Infisical et effectuer le login décrit dans
+cache sccache OVH, effectuer le login Infisical décrit dans
 [REMOTE-CACHE.md](REMOTE-CACHE.md). Sans login, sccache fonctionne localement.
 
 ## Jeu, éditeur et hotpatch
@@ -118,10 +127,16 @@ nix develop .#ci -c cargo xtask build --targets linux-x64,webgpu --profile relea
 nix develop .#ci -c cargo xtask build --targets linux-x64 --asset-quality optimized
 ```
 
-Les runners ARM64 utilisent `--targets linux-arm64`. Pour un checkout public
+Linux ARM64 utilise `--targets linux-arm64`, macOS ARM64 `--targets macos-arm64`.
+Pour un checkout public
 sans assets, utiliser `--suites xtask,graph,asset-export,noodle` pour les tests et
 la couverture. Les rapports se trouvent dans `artifacts/<run>/` : JUnit,
 HTML/LCOV/JSON pour la couverture, manifestes et ZIP vérifiés pour le packaging.
+
+La CI utilise `XTASK_COVERAGE_CLEAN_TARGETS=1` pour supprimer le répertoire de
+compilation isolé de chaque suite après ses rapports et doctests. Cela limite
+le pic disque ; les rapports et logs sont conservés. Les exécutions locales
+gardent ces répertoires sans cette option.
 `--offline` exige aussi que les sources Cargo soient déjà dans le cache local ;
 la flake fournit les outils, pas un cache Cargo de travail prérempli.
 
@@ -192,31 +207,52 @@ Infisical reste limité à `main` et aux tags `v*` : les autres branches utilise
 sccache local, le cache Cargo de GitHub et le store Nix. L'analyse Sonar avec ses
 identifiants dédiés reste réservée à `main`.
 
-## Cache binaire OVH partagé : option ultérieure
+## Cache binaire OVH partagé
 
-Le cache GitHub ne nécessite pas de nouveau bucket. Le bucket existant
-`yummy-blagg`, à Paris, peut aussi héberger un cache binaire Nix. Il n'est pas
-activé par cette flake : les lecteurs sccache existants n'ont accès qu'au
-préfixe `bevy-parkour2/v1/`, tandis que Nix utilise notamment `nix-cache-info`,
-`*.narinfo` et `nar/*`. Réutiliser les identifiants readers actuels échouerait.
+Le bucket privé `yummy-blagg`, à Paris, héberge les deux caches : sccache sous
+`bevy-parkour2/v1/`, et Nix sous `nix-cache-info`, `*.narinfo` et `nar/*`.
+Les lecteurs Infisical build `/cache` peuvent lire ces objets ; leur politique
+OVH interdit toujours écriture, suppression et listing. Les mainteneurs utilisent
+leurs identifiants privés d'infrastructure pour écrire. La clé de signature
+`NIX_CACHE_SIGNING_KEY` reste dans le projet Infisical d'infrastructure ; sa clé
+publique est suivie dans [nix/cache-public-key](../nix/cache-public-key).
 
-Pour l'activer : provisionner des lecteurs limités aux objets Nix et un writer
-réservé aux jobs de confiance, conserver une clé de signature dans Infisical,
-et transmettre uniquement sa clé publique aux collaborateurs. Exemple de
-publication avec un profil AWS dédié et une clé hors du dépôt :
+Dans `nix develop`, après `infisical login --domain https://eu.infisical.com` :
 
 ```sh
+# Collaborateurs : récupérer les résultats existants puis construire les absents.
+python3 tools/nix-cache.py pull .#game .#game-deps
 nix build .#game .#game-deps
-nix store sign --recursive --key-file "$NIX_CACHE_SIGNING_KEY_FILE" ./result ./result-1
-nix copy --to 's3://yummy-blagg?region=eu-west-par&scheme=https&endpoint=s3.eu-west-par.io.cloud.ovh.net&profile=parkour-nix-writer' ./result ./result-1
+
+# Mainteneurs : signer et publier les résultats compilés et leur closure.
+python3 tools/nix-cache.py push .#game .#game-deps
 ```
 
-Ajouter ensuite ce store aux `extra-substituters` et sa clé publique aux
-`extra-trusted-public-keys` de Nix. Un daemon multi-utilisateur doit lui-même
-pouvoir lire le profil AWS de lecture. Ne pas désactiver la vérification des
-signatures. Aucun secret, aucun asset privé et aucune configuration Infisical
-ne doivent entrer dans une dérivation publiée. Le chemin S3 et l'aller-retour
-signé devront être validés avant d'activer ce cache dans les jobs.
+Un chemin `/nix/store/...` ou un lien `./result` est également accepté. Le helper
+utilise les variables AWS du processus si elles sont déjà définies, ou un
+`AWS_PROFILE` explicite. Le helper vérifie d'abord l'accès à `nix-cache-info` ;
+un refus ou un problème réseau à ce stade échoue explicitement. Un 404 de
+métadonnées est un cache miss. OVH renvoie aussi 403 pour une clé absente quand
+le lecteur n'a pas de droit de listing : cette réponse est signalée comme
+« absente ou refusée », puis le build local peut continuer. Seule une copie
+réussie compte comme hit. La lecture est effectuée
+par le client Nix : aucun fichier d'identifiants AWS n'est fourni au daemon.
+La clé privée de signature n'est matérialisée que dans un répertoire temporaire
+privé pour `nix store sign`, puis supprimée, même en cas d'échec.
+
+Pour un Nix multi-utilisateur, l'administrateur doit ajouter la clé publique de
+`nix/cache-public-key` à `extra-trusted-public-keys` dans `/etc/nix/nix.conf` et
+recharger son daemon. Un utilisateur Nix autorisé peut aussi transmettre cette
+clé via `--extra-trusted-public-keys`. La vérification des signatures reste active.
+Le helper `pull` prépare les sorties avant le build ; l'environnement Nix reste
+accessible sans connexion au bucket. Les jobs de build Linux/macOS sur `main`
+et les tags `v*` tentent cette restauration avec leur identité Infisical lecteur.
+La publication OVH reste réservée aux mainteneurs ; les jobs sauvegardent
+également leurs caches Nix/Cargo dans GitHub.
+
+Aucun secret ni asset privé ne doit entrer dans une dérivation publiée.
+La propagation d'une modification de politique OVH peut être différée : vérifier
+un GET réel avant de conclure qu'un nouvel accès fonctionne.
 
 ## Maintenance
 

@@ -5,11 +5,11 @@ runners, checkout, caches, credentials and artifact storage. The same commands
 run locally. Third-party compilers, nextest, LLVM and packaging tools still do
 their specialized work.
 
-Linux jobs enter the pinned `nix develop .#ci` environment; the release job also
+Linux and Apple Silicon jobs enter the pinned `nix develop .#ci` environment; the release job also
 builds the Crane game and dependency derivations. Nix supplies native libraries,
 Rust, LLVM coverage and Clang 22 for wasm C/C++. Basis's vendored libc++ needs
 newer builtins than the runner's default Clang. The Nix store cache complements
-the existing sccache backend. Windows/macOS retain their native setup. See the
+the existing sccache backend. Windows retains its native setup. See the
 [Nix / Crane guide](NIX.md), including native package closure requirements.
 Main builds queue behind the current run so a new push does not discard a cold
 Bevy compilation before its cache is saved. Superseded pull request runs cancel.
@@ -94,6 +94,12 @@ export failures still fail the command. A failed test run attempts all exports
 before exiting. Concurrent coverage collections for the same suite are refused
 with an OS-managed lock. An interrupted pipeline stays INCOMPLETE. Missing results are UNAVAILABLE, never zero successful tests.
 
+Hosted Linux jobs remove unused preinstalled .NET, Android, GHC and Boost SDKs
+before installing Nix. Coverage CI also sets `XTASK_COVERAGE_CLEAN_TARGETS=1`:
+after each suite's reports and doctests finish, its isolated coverage build
+directory is removed while the suite lock remains held. Reports and logs remain
+in the run artifacts. Local runs retain these directories unless explicitly opted in.
+
 The run directory contains `summary.json`, `summary.md`, `logs/` and
 `tests/<suite>/junit.xml`; coverage adds `tests/<suite>/coverage/`.
 The opt-in tooling acceptance test creates a temporary crate with a failure,
@@ -117,7 +123,7 @@ Rust 1.97.1 is pinned in `rust-toolchain.toml`; compilation uses Cargo lockfiles
 The runner needs Git/LFS and its native compiler/linker:
 MSVC Build Tools on Windows, Xcode Command Line Tools on macOS, and a C toolchain
 plus pkg-config/ALSA/udev/X11/Wayland/xkbcommon development packages on Linux.
-The GitHub workflow delegates Linux provisioning to the locked Nix flake,
+The GitHub workflow delegates Linux/macOS provisioning to the locked Nix flake,
 with no project-maintained host package installer.
 
 `doctor` never downloads or installs. Execution can add Rust targets and the

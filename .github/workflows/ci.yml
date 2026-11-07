@@ -97,14 +97,14 @@ jobs:
           repository: ${{ vars.ASSETS_REPOSITORY }}
           ssh-key: ${{ secrets.ASSETS_DEPLOY_KEY }}
       - uses: ./.github/actions/nix
-        if: runner.os == 'Linux'
+        if: runner.os != 'Windows'
       - uses: dtolnay/rust-toolchain@683b588c487a69d01f6c6ddf40f036ff682cc2c8
-        if: runner.os != 'Linux'
+        if: runner.os == 'Windows'
         with:
           toolchain: 1.97.1
           components: llvm-tools-preview
       - uses: Swatinem/rust-cache@d1527c8f67ef9af357290475d4af4b0fab8f12e0
-        if: runner.os != 'Linux'
+        if: runner.os == 'Windows'
         with:
           key: tests-${{ matrix.target }}
           cache-directories: target/xtask-cache
@@ -113,13 +113,15 @@ jobs:
         shell: pwsh
         run: ./tools/infisical-ci.ps1 -Scope cache -IdentityId '${{ vars.INFISICAL_BUILD_IDENTITY_ID }}'
       - name: Set up project compiler cache
-        if: runner.os != 'Linux'
+        if: runner.os == 'Windows'
         shell: pwsh
         run: ./tools/setup_cache.ps1
       - run: nix develop .#ci -c cargo xtask ${{ matrix.command }} ${{ github.event_name == 'pull_request' && '--suites xtask,graph,asset-export,noodle' || '' }}
-        if: runner.os == 'Linux'
+        if: runner.os != 'Windows'
+        env:
+          XTASK_COVERAGE_CLEAN_TARGETS: '1'
       - run: cargo xtask ${{ matrix.command }} ${{ github.event_name == 'pull_request' && '--suites xtask,graph,asset-export,noodle' || '' }}
-        if: runner.os != 'Linux'
+        if: runner.os == 'Windows'
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
         if: always()
         with:
@@ -168,25 +170,28 @@ jobs:
           repository: ${{ vars.ASSETS_REPOSITORY }}
           ssh-key: ${{ secrets.ASSETS_DEPLOY_KEY }}
       - uses: ./.github/actions/nix
-        if: runner.os == 'Linux'
+        if: runner.os != 'Windows'
       - uses: dtolnay/rust-toolchain@683b588c487a69d01f6c6ddf40f036ff682cc2c8
-        if: runner.os != 'Linux'
+        if: runner.os == 'Windows'
         with:
           toolchain: 1.97.1
       - uses: Swatinem/rust-cache@d1527c8f67ef9af357290475d4af4b0fab8f12e0
-        if: runner.os != 'Linux'
+        if: runner.os == 'Windows'
         with:
           key: build-${{ matrix.os }}
           cache-directories: target/xtask-cache
-      - name: Build the cached Crane release derivation
-        if: runner.os == 'Linux'
-        run: nix build .#game .#game-deps --print-build-logs
       - name: Load shared cache access from Infisical (trusted jobs)
         if: (github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/tags/v')) && github.event_name != 'pull_request' && vars.INFISICAL_BUILD_IDENTITY_ID != ''
         shell: pwsh
         run: ./tools/infisical-ci.ps1 -Scope cache -IdentityId '${{ vars.INFISICAL_BUILD_IDENTITY_ID }}'
+      - name: Restore signed Crane outputs from OVH
+        if: runner.os != 'Windows' && (github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/tags/v')) && vars.INFISICAL_BUILD_IDENTITY_ID != ''
+        run: nix develop .#ci -c python3 tools/nix-cache.py pull .#game .#game-deps
+      - name: Build the cached Crane release derivation
+        if: runner.os != 'Windows'
+        run: nix build .#game .#game-deps --print-build-logs
       - name: Set up project compiler cache
-        if: runner.os != 'Linux'
+        if: runner.os == 'Windows'
         shell: pwsh
         run: ./tools/setup_cache.ps1
       - name: Load official build client configuration
@@ -200,11 +205,11 @@ jobs:
         env:
           INFISICAL_RELEASE_PROJECT_ID: ${{ vars.INFISICAL_RELEASE_PROJECT_ID }}
       - run: nix develop .#ci -c cargo xtask build --targets ${{ matrix.targets }} --asset-quality ${{ inputs.asset_quality || 'original' }} --channel ${{ github.ref_type == 'tag' && 'official' || 'local' }}
-        if: runner.os == 'Linux'
+        if: runner.os != 'Windows'
         env:
           XTASK_TAG: ${{ github.ref_type == 'tag' && github.ref_name || '' }}
       - run: cargo xtask build --targets ${{ matrix.targets }} --asset-quality ${{ inputs.asset_quality || 'original' }} --channel ${{ github.ref_type == 'tag' && 'official' || 'local' }}
-        if: runner.os != 'Linux'
+        if: runner.os == 'Windows'
         env:
           XTASK_TAG: ${{ github.ref_type == 'tag' && github.ref_name || '' }}
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02

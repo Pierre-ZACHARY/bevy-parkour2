@@ -11,6 +11,8 @@ let
     overlays = [ rust-overlay.overlays.default ];
   };
   inherit (pkgs) lib;
+  inherit (pkgs.stdenv.hostPlatform) isLinux isDarwin;
+  libraryPathVariable = if isDarwin then "DYLD_FALLBACK_LIBRARY_PATH" else "LD_LIBRARY_PATH";
   # Keep the compiler derivation separate from formatting/lint frontends.
   # Both come from the same pinned rust-toolchain.toml; rustup is SDK fallback.
   lintToolchain = pkgs.rust-bin.fromRustupToolchainFile ../rust-toolchain.toml;
@@ -24,24 +26,30 @@ let
   };
   craneLib = (crane.mkLib pkgs).overrideToolchain toolchain;
   wasmLlvm = pkgs.llvmPackages_22;
-  hasEditor = system == "x86_64-linux";
-  editorToolchain = pkgs.rust-bin.stable."1.99.0".minimal;
-  nativeLibraries = with pkgs; [
-    alsa-lib
-    udev
-    vulkan-loader
-    libGL
-    wayland
-    libxkbcommon
-    libx11
-    libxcursor
-    libxi
-    libxrandr
-    libxcb
-    libxrender
-    libxext
+  hasEditor = builtins.elem system [
+    "x86_64-linux"
+    "aarch64-darwin"
   ];
-  editorLibraries = nativeLibraries ++ [ pkgs.fontconfig ];
+  editorToolchain = pkgs.rust-bin.stable."1.99.0".minimal;
+  nativeLibraries =
+    with pkgs;
+    lib.optionals isLinux [
+      alsa-lib
+      udev
+      vulkan-loader
+      libGL
+      wayland
+      libxkbcommon
+      libx11
+      libxcursor
+      libxi
+      libxrandr
+      libxcb
+      libxrender
+      libxext
+    ]
+    ++ lib.optionals isDarwin [ libiconv ];
+  editorLibraries = nativeLibraries ++ lib.optional isLinux pkgs.fontconfig;
   nativeTools = with pkgs; [
     pkg-config
     clang
@@ -87,7 +95,8 @@ let
     CARGO_INCREMENTAL = "0";
     cargoExtraArgs = "--locked -p bevy_parkour2 --bin bevy_parkour2 --no-default-features --features distribution";
     doCheck = false;
-  };
+  }
+  // lib.optionalAttrs isDarwin { MACOSX_DEPLOYMENT_TARGET = "13.0"; };
   localVendor = lib.cleanSourceWith {
     src = self;
     name = "parkour-local-vendor";
@@ -140,7 +149,7 @@ let
         mv "$out/bin/bevy_parkour2" "$out/libexec/bevy_parkour2"
         makeWrapper ${gameLauncher} "$out/bin/bevy_parkour2" \
           --set PARKOUR_NIX_GAME_BINARY "$out/libexec/bevy_parkour2" \
-          --prefix LD_LIBRARY_PATH : ${lib.makeLibraryPath editorLibraries}
+          --prefix ${libraryPathVariable} : ${lib.makeLibraryPath editorLibraries}
       '';
     }
   );
@@ -161,20 +170,20 @@ let
       version = pin.version;
       src = pkgs.fetchurl { inherit (pin) url sha256; };
       sourceRoot = ".";
-      nativeBuildInputs = [ pkgs.autoPatchelfHook ];
-      buildInputs = [
-        pkgs.stdenv.cc.cc.lib
+      nativeBuildInputs = lib.optional isLinux pkgs.autoPatchelfHook;
+      buildInputs = lib.optional isLinux pkgs.stdenv.cc.cc.lib ++ [
         pkgs.openssl
         pkgs.zlib
       ];
       dontBuild = true;
+      dontStrip = isDarwin;
       installPhase = ''
         runHook preInstall
         mkdir -p "$out/bin" "$out/lib"
         file=$(find . -type f -name ${lib.escapeShellArg pin.file} -print -quit)
         test -n "$file"
         install -m755 "$file" "$out/bin/${pin.file}"
-        find . -type f -name '*.so*' -exec cp -P {} "$out/lib/" \;
+        find . -type f \( -name '*.so*' -o -name '*.dylib' \) -exec cp -P {} "$out/lib/" \;
         runHook postInstall
       '';
     };
@@ -215,7 +224,7 @@ let
         cargoExtraArgs = "--locked";
         postFixup = ''
           for executable in "$out"/bin/*; do
-            wrapProgram "$executable" --prefix LD_LIBRARY_PATH : ${lib.makeLibraryPath editorLibraries}
+            wrapProgram "$executable" --prefix ${libraryPathVariable} : ${lib.makeLibraryPath editorLibraries}
           done
         '';
       }
@@ -283,10 +292,12 @@ let
             rustup
             nixfmt
             actionlint
+            (python3.withPackages (ps: [ ps.boto3 ]))
           ]
           ++ lib.optionals interactive [
             dioxus
             jd
+            infisical
           ]
           ++ lib.optionals (interactive && hasEditor) [ jackdaw ];
         XTASK_TOOLS_DIR = "${tools}/bin";
@@ -300,7 +311,7 @@ let
         CC_wasm32_unknown_unknown = "${wasmLlvm.clang.cc}/bin/clang";
         CXX_wasm32_unknown_unknown = "${wasmLlvm.clang.cc}/bin/clang++";
         AR_wasm32_unknown_unknown = "${wasmLlvm.llvm}/bin/llvm-ar";
-        LD_LIBRARY_PATH = lib.makeLibraryPath editorLibraries;
+        ${libraryPathVariable} = lib.makeLibraryPath editorLibraries;
         shellHook = ''
           export BEVY_ASSET_ROOT="$PWD"
           export JACKDAW_OPEN_PROJECT="$PWD"
@@ -322,7 +333,6 @@ in
 {
   packages = {
     default = game;
-    mesa = pkgs.mesa;
     inherit
       game
       tools
@@ -331,6 +341,7 @@ in
       ;
     game-deps = cargoArtifacts;
   }
+  // lib.optionalAttrs isLinux { mesa = pkgs.mesa; }
   // lib.optionalAttrs hasEditor { inherit jackdaw; };
   devShells = {
     default = shell true;

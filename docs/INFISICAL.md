@@ -37,6 +37,10 @@ built-in roles can read secrets across all of its environments and paths.
 Use organization Member and project Viewer for collaborators; reserve Admin
 for the owner. No collaborator invitations have been sent.
 
+The infrastructure project also holds `NIX_CACHE_SIGNING_KEY` for signing the
+private OVH Nix binary cache. Only its public verification key is tracked in
+`nix/cache-public-key`; build-only members receive no signing or write capability.
+
 Separate projects enforce the boundary on the current subscription. Creating a
 custom project role was rejected by Infisical's Enterprise entitlement check;
 folder access is also a paid feature. Adding folders alone is not isolation.
@@ -47,7 +51,8 @@ and [folder access documentation](https://infisical.com/docs/documentation/platf
 
 1. **Cache readers: deployed and validated.** `infra/src/cache_access.rs` manages
    dedicated OVH user `944578`, its S3 credential and a policy permitting only
-   `s3:GetObject` under `yummy-blagg/bevy-parkour2/v1/*`. The owner approved OVH's
+   `s3:GetObject` under `yummy-blagg/bevy-parkour2/v1/*`, plus the owner-approved
+   Nix cache objects `nix-cache-info`, `*.narinfo` and `nar/*`. The owner approved OVH's
    coarse `objectstore_operator` role; ignored stack config has
    `enableCacheReaders=true`. Before publishing the keys, live tests verified
    a permitted read and HTTP 403 for writes, deletion, reads outside the prefix,

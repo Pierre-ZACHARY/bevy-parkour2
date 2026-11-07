@@ -62,6 +62,13 @@ pub fn register(ctx: &Context, provider: &Resource, project: &str, bucket: &str)
     let policy = serde_json::json!({"Statement":[{
         "Sid":"ReadCompilerCacheOnly", "Effect":"Allow", "Action":["s3:GetObject"],
         "Resource":[format!("arn:aws:s3:::{bucket}/{prefix}*")]
+    }, {
+        "Sid":"ReadNixCacheOnly", "Effect":"Allow", "Action":["s3:GetObject"],
+        "Resource":[
+            format!("arn:aws:s3:::{bucket}/nix-cache-info"),
+            format!("arn:aws:s3:::{bucket}/*.narinfo"),
+            format!("arn:aws:s3:::{bucket}/nar/*")
+        ]
     }]})
     .to_string();
     let policy = ctx.register_resource(RegisterRequest {

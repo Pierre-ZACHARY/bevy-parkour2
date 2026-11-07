@@ -209,6 +209,33 @@ pub fn tests(run: &mut Run, opts: &Common, suites: &[Suite], coverage: bool) -> 
     }
     Ok(())
 }
+fn test_target(root: &Path, suite: &Suite, coverage: bool) -> PathBuf {
+    root.join(if coverage {
+        "target/coverage-ci"
+    } else {
+        "target/ci"
+    })
+    .join(if coverage { suite.name } else { "shared" })
+}
+fn coverage_lock(target: &Path) -> Result<fs::File> {
+    let parent = target.parent().context("coverage target parent")?;
+    fs::create_dir_all(parent)?;
+    // Keep the lock outside the disposable build directory. It must remain
+    // locked while completed coverage targets are removed on small runners.
+    let name = target
+        .file_name()
+        .context("coverage target name")?
+        .to_string_lossy();
+    let lock = fs::OpenOptions::new()
+        .create(true)
+        .truncate(false)
+        .read(true)
+        .write(true)
+        .open(parent.join(format!(".{name}.xtask-coverage.lock")))?;
+    lock.try_lock()
+        .context("another coverage collection is using this suite's target directory")?;
+    Ok(lock)
+}
 fn test_suite(
     run: &mut Run,
     opts: &Common,
@@ -222,27 +249,12 @@ fn test_suite(
     let out = run.dir.join("tests").join(suite.name);
     fs::create_dir_all(&out)?;
     // Coverage builds are separate from normal builds and from each other.
-    let target = run
-        .root
-        .join(if coverage {
-            "target/coverage-ci"
-        } else {
-            "target/ci"
-        })
-        .join(if coverage { suite.name } else { "shared" });
+    let target = test_target(&run.root, suite, coverage);
     // File locks are released by the OS even if this process crashes.
     // Two coverage runs must never clean or merge each other's raw profiles.
     fs::create_dir_all(&target)?;
     let _coverage_lock = if coverage {
-        let lock = fs::OpenOptions::new()
-            .create(true)
-            .truncate(false)
-            .read(true)
-            .write(true)
-            .open(target.join(".xtask-coverage.lock"))?;
-        lock.try_lock()
-            .context("another coverage collection is using this suite's target directory")?;
-        Some(lock)
+        Some(coverage_lock(&target)?)
     } else {
         None
     };
@@ -308,7 +320,8 @@ fn test_suite(
     run.junit(suite.name, &junit);
     run.save()?;
     if coverage {
-        // Report options do not repeat Cargo feature flags; the collection owns them.
+        // Package selection and feature flags belong to collection. `report`
+        // reads this suite's isolated target; llvm-cov 0.9 rejects --exclude here.
         for format in ["html", "lcov", "json"] {
             let cov = out.join("coverage");
             fs::create_dir_all(&cov)?;
@@ -317,19 +330,6 @@ fn test_suite(
                 .args(["llvm-cov", "report", "--manifest-path"])
                 .arg(run.root.join(suite.manifest))
                 .args(["--profile", "coverage", "--locked"]);
-            if suite.workspace {
-                report.args([
-                    "--workspace",
-                    "--exclude",
-                    "xtask",
-                    "--exclude",
-                    "asset-export",
-                    "--exclude",
-                    "basisu-prepare",
-                    "--exclude",
-                    "basisu-prototype",
-                ]);
-            }
             report.arg(format!("--{format}"));
             let expected = if format == "html" {
                 report.arg("--output-dir").arg(&cov);
@@ -382,6 +382,22 @@ fn test_suite(
         process::run(run, &format!("{}-doctests", suite.name), &mut docs)?;
     }
     run.save()?;
+    if coverage && std::env::var("XTASK_COVERAGE_CLEAN_TARGETS").as_deref() == Ok("1") {
+        fs::remove_dir_all(&target)
+            .with_context(|| format!("remove completed coverage build {}", target.display()))?;
+    }
+    Ok(())
+}
+#[test]
+fn coverage_lock_survives_completed_target_cleanup() -> Result<()> {
+    let root = tempfile::tempdir()?;
+    let target = root.path().join("coverage-ci/game");
+    fs::create_dir_all(&target)?;
+    let guard = coverage_lock(&target)?;
+    fs::remove_dir_all(&target)?;
+    assert!(coverage_lock(&target).is_err());
+    drop(guard);
+    assert!(coverage_lock(&target).is_ok());
     Ok(())
 }
 pub fn ensure_tools(opts: &Common, host: &str, ids: &[&str]) -> Result<Vec<PathBuf>> {

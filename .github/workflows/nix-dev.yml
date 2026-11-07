@@ -1,0 +1,55 @@
+name: Nix Apple Silicon
+on:
+  push:
+    paths:
+      - 'flake.*'
+      - 'rust-toolchain.toml'
+      - 'nix/**'
+      - 'tools/compiler-cache.rs'
+      - 'tools/cache-*.rs'
+      - 'tools/setup_cache.sh'
+      - '.github/actions/nix/**'
+      - '.github/workflows/nix-dev.yml'
+  pull_request:
+    paths:
+      - 'flake.*'
+      - 'rust-toolchain.toml'
+      - 'nix/**'
+      - 'tools/compiler-cache.rs'
+      - 'tools/cache-*.rs'
+      - 'tools/setup_cache.sh'
+      - '.github/actions/nix/**'
+      - '.github/workflows/nix-dev.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: nix-dev-${{ github.ref }}
+  cancel-in-progress: ${{ github.ref != 'refs/heads/main' }}
+
+jobs:
+  dev-shell:
+    runs-on: macos-15
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          lfs: false
+          persist-credentials: false
+      - uses: ./.github/actions/nix
+      - name: Validate the Apple Silicon development shell
+        run: |
+          nix develop .#default --profile .compiler-cache/nix-dev-profile -c sh -ec '
+            rustc --version | grep "rustc 1.97.1"
+            RUSTUP_TOOLCHAIN="$PARKOUR_NIX_EDITOR_TOOLCHAIN" rustc --version | grep "rustc 1.99.0"
+            dx --version
+            jd --version
+            infisical --version
+            cargo nextest --version
+            cargo llvm-cov --version
+            wasm-bindgen --version
+            wasm-opt --version
+          '
+      - name: Build the native Crane release and run isolated xtask checks
+        run: nix build .#game .#game-deps .#checks.aarch64-darwin.xtask --print-build-logs

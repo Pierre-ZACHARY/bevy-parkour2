@@ -1,0 +1,6 @@
+{
+  "bucket": "yummy-blagg",
+  "region": "eu-west-par",
+  "endpoint": "s3.eu-west-par.io.cloud.ovh.net",
+  "signingKeySecret": "NIX_CACHE_SIGNING_KEY"
+}

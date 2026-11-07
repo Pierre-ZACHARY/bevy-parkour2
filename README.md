@@ -6,7 +6,7 @@ a Tnua controller, both authored in the Jackdaw scene `assets/scene.bsn`.
 
 ## Toolchain
 
-Linux avec Nix : `nix develop` fournit la toolchain, Dioxus, Jackdaw et les
+Linux et macOS Apple Silicon avec Nix : `nix develop` fournit la toolchain, Dioxus, Jackdaw et les
 outils CI. Voir le [guide Nix / Crane](docs/NIX.md) pour les commandes et caches.
 
 - Rust 1.97.1 (pinned in `rust-toolchain.toml`, required by Bevy 0.20 and Jackdaw 0.20)

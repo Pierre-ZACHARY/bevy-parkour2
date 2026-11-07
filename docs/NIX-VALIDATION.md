@@ -60,8 +60,49 @@ ne contiennent plus les erreurs de chemin d'assets dans `/nix/store`.
 ARM64 a été évalué, sans compilation ni exécution sur une machine ARM64.
 L'éditeur officiel 0.20.1-rc.1 n'est pas publié pour Linux ARM64 et n'est donc
 pas exposé sur cette architecture. Le shell CI et Dioxus y sont exposés.
-Les workflows GitHub ont été modifiés localement ; aucun push ou lancement
-de workflow distant n'est inclus dans cette validation.
+Ces premières mesures locales précèdent la publication de la branche et les
+vérifications distantes ci-dessous.
+
+## Complément : cache OVH et GitHub, 7 novembre 2026
+
+Le bucket `yummy-blagg` a fait l'objet d'essais réels avec les identités Infisical
+mainteneur et lecteur. Le témoin sccache compile une bibliothèque Rust avec le
+compilateur Nix : un miss et une écriture S3 à froid, puis suppression de la
+sortie locale et nouveau daemon avec l'identité lecteur. La seconde compilation
+obtient un hit Rust, zéro compilation, zéro écriture et zéro erreur de cache.
+Les SHA-256 des deux `.rlib` sont identiques. Ce témoin valide le protocole, pas
+un gain de performance sur une compilation complète du jeu.
+
+Les sorties Crane `game` et `game-deps` de la validation locale ont été signées
+avec la clé privée créée dans Infisical infrastructure, puis publiées par
+`tools/nix-cache.py push`. Un store Nix indépendant et initialement vide a
+restauré ces sorties avec l'identité lecteur. La vérification du contenu et
+d'au moins une signature de confiance a réussi pour 932 chemins. Le SHA-256
+du binaire restauré est identique ; l'archive Crane de dépendances conserve
+son `narHash`, ses références et sa taille NAR de 659 764 128 octets.
+Les fichiers de rapport sont `sccache-ovh-*.json`, `nix-ovh-push.json` et
+`nix-ovh-reader-*.json` dans les traces locales ignorées.
+
+La politique lecteur OVH `944578` a été étendue, avec accord explicite, aux
+seuls GET des objets Nix. La même politique est suivie dans
+`infra/src/cache_access.rs`, et son état Pulumi a été synchronisé par une
+[actualisation ciblée](https://app.pulumi.com/Pierre-ZACHARY/bevy-parkour2-infra/dev/updates/22).
+La clé publique est suivie dans `nix/cache-public-key` ; aucun secret n'est ajouté
+au dépôt. Une modification de politique OVH a présenté un délai de propagation,
+observé par des refus temporaires avant réussite des lectures réelles.
+
+L'[exécution GitHub f1b177c](https://github.com/Pierre-ZACHARY/bevy-parkour2/actions/runs/42394275535)
+a validé le lint, les dérivations release Crane Linux x64/ARM64, le packaging
+Linux/WebGPU/Windows/macOS et les tests Linux ARM64/macOS. La couverture x64 a
+révélé l'option `--exclude` invalide dans `llvm-cov report`, puis un manque de
+disque pendant Noodle. Les corrections retirent les options de collection de
+la phase rapport et autorisent la CI à supprimer chaque build de couverture
+après ses rapports, sous verrou. Les SDK inutilisés des runners Linux sont
+également retirés. La validation GitHub de ces corrections reste nécessaire.
+
+Le support `aarch64-darwin`, ses outils et ses deux shells passent l'évaluation
+Nix. La compilation native macOS avec Nix et les CLI Dioxus/Jackdaw sont vérifiées
+par le job macOS modifié ; l'évaluation depuis Linux ne prouve pas leur exécution.
 
 ## Traces locales
 

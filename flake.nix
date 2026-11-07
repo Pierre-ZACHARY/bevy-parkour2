@@ -1,5 +1,5 @@
 {
-  description = "Bevy Parkour 2: Linux development and CI with Crane";
+  description = "Bevy Parkour 2: Linux and Apple Silicon development and CI with Crane";
 
   inputs = {
     nixpkgs.url = "github:NixOS/nixpkgs/nixpkgs-unstable";
@@ -21,6 +21,7 @@
       systems = [
         "x86_64-linux"
         "aarch64-linux"
+        "aarch64-darwin"
       ];
       perSystem = nixpkgs.lib.genAttrs systems (
         system:
