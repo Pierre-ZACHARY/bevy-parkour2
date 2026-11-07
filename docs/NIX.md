@@ -186,6 +186,12 @@ au-delà de 8 Gio avant sauvegarde ; les GC roots restent prioritaires, et les
 limites de stockage du service continuent de s'appliquer. Les commandes xtask
 continuent à utiliser sccache et à produire les rapports habituels.
 
+Les lancements manuels sur une branche nécessitent une autorisation de cette
+branche dans l'environnement GitHub `build` pour récupérer les assets privés.
+Infisical reste limité à `main` et aux tags `v*` : les autres branches utilisent
+sccache local, le cache Cargo de GitHub et le store Nix. L'analyse Sonar avec ses
+identifiants dédiés reste réservée à `main`.
+
 ## Cache binaire OVH partagé : option ultérieure
 
 Le cache GitHub ne nécessite pas de nouveau bucket. Le bucket existant

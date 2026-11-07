@@ -44,7 +44,7 @@ jobs:
           ssh-key: ${{ secrets.ASSETS_DEPLOY_KEY }}
       - uses: ./.github/actions/nix
       - name: Load shared cache access from Infisical (trusted jobs)
-        if: github.event_name != 'pull_request' && vars.INFISICAL_BUILD_IDENTITY_ID != ''
+        if: (github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/tags/v')) && github.event_name != 'pull_request' && vars.INFISICAL_BUILD_IDENTITY_ID != ''
         shell: pwsh
         run: ./tools/infisical-ci.ps1 -Scope cache -IdentityId '${{ vars.INFISICAL_BUILD_IDENTITY_ID }}' -VerifyIsolation
       - run: nix flake check --all-systems --no-build
@@ -109,7 +109,7 @@ jobs:
           key: tests-${{ matrix.target }}
           cache-directories: target/xtask-cache
       - name: Load shared cache access from Infisical (trusted jobs)
-        if: github.event_name != 'pull_request' && vars.INFISICAL_BUILD_IDENTITY_ID != ''
+        if: (github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/tags/v')) && github.event_name != 'pull_request' && vars.INFISICAL_BUILD_IDENTITY_ID != ''
         shell: pwsh
         run: ./tools/infisical-ci.ps1 -Scope cache -IdentityId '${{ vars.INFISICAL_BUILD_IDENTITY_ID }}'
       - name: Set up project compiler cache
@@ -182,7 +182,7 @@ jobs:
         if: runner.os == 'Linux'
         run: nix build .#game .#game-deps --print-build-logs
       - name: Load shared cache access from Infisical (trusted jobs)
-        if: github.event_name != 'pull_request' && vars.INFISICAL_BUILD_IDENTITY_ID != ''
+        if: (github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/tags/v')) && github.event_name != 'pull_request' && vars.INFISICAL_BUILD_IDENTITY_ID != ''
         shell: pwsh
         run: ./tools/infisical-ci.ps1 -Scope cache -IdentityId '${{ vars.INFISICAL_BUILD_IDENTITY_ID }}'
       - name: Set up project compiler cache
@@ -237,7 +237,7 @@ jobs:
           fetch-depth: 0
       - uses: ./.github/actions/nix
       - name: Load shared cache access from Infisical (trusted jobs)
-        if: github.event_name != 'pull_request' && vars.INFISICAL_BUILD_IDENTITY_ID != ''
+        if: (github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/tags/v')) && github.event_name != 'pull_request' && vars.INFISICAL_BUILD_IDENTITY_ID != ''
         shell: pwsh
         run: ./tools/infisical-ci.ps1 -Scope cache -IdentityId '${{ vars.INFISICAL_BUILD_IDENTITY_ID }}'
       - name: Load release configuration
@@ -255,7 +255,7 @@ jobs:
     permissions:
       contents: read
       id-token: write
-    if: github.event_name != 'pull_request' && github.ref_type != 'tag' && vars.INFISICAL_SONAR_ENABLED == 'true'
+    if: github.ref == 'refs/heads/main' && github.event_name != 'pull_request' && vars.INFISICAL_SONAR_ENABLED == 'true'
     needs: [tests, lint]
     runs-on: ubuntu-24.04
     steps:
@@ -272,7 +272,7 @@ jobs:
           name: lint-reports
           path: artifacts/sonar-lint
       - name: Load shared cache access from Infisical (trusted jobs)
-        if: github.event_name != 'pull_request' && vars.INFISICAL_BUILD_IDENTITY_ID != ''
+        if: (github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/tags/v')) && github.event_name != 'pull_request' && vars.INFISICAL_BUILD_IDENTITY_ID != ''
         shell: pwsh
         run: ./tools/infisical-ci.ps1 -Scope cache -IdentityId '${{ vars.INFISICAL_BUILD_IDENTITY_ID }}'
       - name: Load dedicated Sonar analysis credentials
