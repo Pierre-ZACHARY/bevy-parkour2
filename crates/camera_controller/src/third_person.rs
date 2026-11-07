@@ -1,7 +1,9 @@
 //! The Third Person node: a camera over the shoulder of its target, which
-//! faces where the camera aims. Held, `free_look` turns the camera alone,
-//! the aim staying where it was; let go, the camera comes back to the aim
-//! over `recenter` seconds.
+//! faces where the camera aims. Held, `free_look` (the middle button) turns
+//! the camera alone round the target, the aim staying where it was. Let
+//! go, with `face_on_release` the aim comes to where the camera looks: the
+//! target turns to face the reticle. Without, the camera comes back to the
+//! aim over `recenter` seconds.
 //!
 //! Its inputs: what it follows (`target`, an entity, from an Entity node;
 //! unwired, the first [`CameraTarget`]) and where on it (`bone`, from a Bone
@@ -44,9 +46,18 @@ impl ThirdPersonView {
     }
 
     /// Turn by `turn` (yaw, pitch): the look alone while `free`, else the
-    /// aim and the look, the look then easing back to the aim (all the
-    /// way in about `recenter` seconds). Pitches stay within `pitch`.
-    pub fn turn(&mut self, turn: Vec2, free: bool, pitch: (f32, f32), recenter: f32, dt: f32) {
+    /// aim and the look. Out of a free look, the aim comes to the look if
+    /// `face` (the target turns), else the look eases back to the aim (all
+    /// the way in about `recenter` seconds). Pitches stay within `pitch`.
+    pub fn turn(
+        &mut self,
+        turn: Vec2,
+        free: bool,
+        face: bool,
+        pitch: (f32, f32),
+        recenter: f32,
+        dt: f32,
+    ) {
         let clamp = |angles: Vec2| {
             Vec2::new(
                 angle_between(0.0, angles.x),
@@ -55,6 +66,11 @@ impl ThirdPersonView {
         };
         self.look = clamp(self.look + turn);
         if free {
+            return;
+        }
+        if face {
+            // Turned with the look already.
+            self.aim = self.look;
             return;
         }
         self.aim = clamp(self.aim + turn);
@@ -97,6 +113,7 @@ const STICK_SPEED: usize = 9;
 const MIN_PITCH: usize = 10;
 const MAX_PITCH: usize = 11;
 const RECENTER: usize = 12;
+const FACE_ON_RELEASE: usize = 13;
 
 pub(crate) fn register(app: &mut App) {
     app.register_type::<ThirdPersonView>().register_flow_node(
@@ -117,6 +134,7 @@ pub(crate) fn register(app: &mut App) {
                 ("min_pitch", PortKind::Float),
                 ("max_pitch", PortKind::Float),
                 ("recenter", PortKind::Float),
+                ("face_on_release", PortKind::Bool),
             ],
             follow,
         )
@@ -127,7 +145,8 @@ pub(crate) fn register(app: &mut App) {
         .with_default("distance", FlowValue::Float(2.2))
         .with_default("min_pitch", FlowValue::Float(-60.0))
         .with_default("max_pitch", FlowValue::Float(70.0))
-        .with_default("recenter", FlowValue::Float(0.3)),
+        .with_default("recenter", FlowValue::Float(0.3))
+        .with_default("face_on_release", FlowValue::Bool(true)),
     );
 }
 
@@ -164,6 +183,7 @@ fn follow(world: &mut World, camera: Entity, inputs: &[FlowValue]) {
         view.turn(
             turn,
             inputs[FREE_LOOK].as_bool(),
+            inputs[FACE_ON_RELEASE].as_bool(),
             pitch,
             inputs[RECENTER].as_f32(),
             dt,
@@ -237,7 +257,14 @@ mod tests {
     #[test]
     fn turning_turns_the_aim_with_the_camera() {
         let mut view = ThirdPersonView::default();
-        view.turn(Vec2::new(FRAC_PI_2, 2.0), false, PITCH, 0.3, 1.0 / 60.0);
+        view.turn(
+            Vec2::new(FRAC_PI_2, 2.0),
+            false,
+            true,
+            PITCH,
+            0.3,
+            1.0 / 60.0,
+        );
         assert!(view.aim.abs_diff_eq(Vec2::new(FRAC_PI_2, PITCH.1), 1e-6));
         assert_eq!(view.look, view.aim);
         // A quarter turn left: the aim looks down -X.
@@ -249,15 +276,30 @@ mod tests {
     }
 
     #[test]
+    fn let_go_of_a_free_look_the_aim_comes_to_the_camera() {
+        let mut view = ThirdPersonView::default();
+        view.turn(Vec2::new(2.0, 0.5), true, true, PITCH, 0.3, 1.0 / 60.0);
+        assert_eq!(view.aim, Vec2::ZERO);
+        // Let go: the camera stays, the target turns to where it looks.
+        view.turn(Vec2::ZERO, false, true, PITCH, 0.3, 1.0 / 60.0);
+        assert!(view.look.abs_diff_eq(Vec2::new(2.0, 0.5), 1e-6));
+        assert_eq!(view.aim, view.look);
+        // Then they turn together.
+        view.turn(Vec2::new(0.1, 0.0), false, true, PITCH, 0.3, 1.0 / 60.0);
+        assert!(view.aim.abs_diff_eq(Vec2::new(2.1, 0.5), 1e-6));
+        assert_eq!(view.aim, view.look);
+    }
+
+    #[test]
     fn free_look_keeps_the_aim_and_comes_back_to_it() {
         let mut view = ThirdPersonView::default();
-        view.turn(Vec2::new(2.0, 0.5), true, PITCH, 0.3, 1.0 / 60.0);
+        view.turn(Vec2::new(2.0, 0.5), true, false, PITCH, 0.3, 1.0 / 60.0);
         assert_eq!(view.aim, Vec2::ZERO);
         assert!(view.look.abs_diff_eq(Vec2::new(2.0, 0.5), 1e-6));
         // Let go: back to the aim within the recenter time, the short way.
         let mut yaws = Vec::new();
         for _ in 0..20 {
-            view.turn(Vec2::ZERO, false, PITCH, 0.3, 1.0 / 60.0);
+            view.turn(Vec2::ZERO, false, false, PITCH, 0.3, 1.0 / 60.0);
             yaws.push(view.look.x);
         }
         assert!(yaws.windows(2).all(|w| w[1] < w[0]), "{yaws:?}");
@@ -316,7 +358,7 @@ mod tests {
     fn the_look_wraps_around() {
         let mut view = ThirdPersonView::default();
         for _ in 0..5 {
-            view.turn(Vec2::new(1.0, 0.0), false, PITCH, 0.3, 1.0 / 60.0);
+            view.turn(Vec2::new(1.0, 0.0), false, true, PITCH, 0.3, 1.0 / 60.0);
         }
         assert!((view.aim.x - (5.0 - 2.0 * PI)).abs() < 1e-4, "{}", view.aim);
     }

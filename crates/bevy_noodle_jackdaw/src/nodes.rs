@@ -1,8 +1,14 @@
 //! Node types every graph can use, needing nothing but Bevy.
 //!
 //! Among them, what finds an entity for a node to act on: Entity (by name),
-//! Skeleton (the skinned mesh under an entity) and Bone (a joint of a
-//! skeleton, by name), their names picked in views from the world's.
+//! Skeleton (the skinned mesh under an entity, by default the one the graph
+//! runs for) and Bone (a joint of a skeleton, by name), their names picked
+//! in views from the world's (a Bone node's, without a skeleton there, from
+//! the preview character's: see [`PreviewBones`](crate::view::PreviewBones)).
+//!
+//! Smooth Polar follows a vector a little behind, turning its direction and
+//! easing its length apart (see [`PolarSpring`]): a velocity feeding a
+//! blend space, so the clips mix over a moment, not in a frame.
 
 use std::collections::VecDeque;
 
@@ -18,6 +24,7 @@ pub const DOUBLE_TAP: &str = "core/double_tap";
 pub const ENTITY: &str = "core/entity";
 pub const SKELETON: &str = "core/skeleton";
 pub const BONE: &str = "core/bone";
+pub const SMOOTH_POLAR: &str = "core/smooth_polar";
 
 pub(crate) fn register(app: &mut App) {
     let entity = FlowNodeType::compute(
@@ -43,11 +50,12 @@ pub(crate) fn register(app: &mut App) {
     #[cfg(feature = "view")]
     let (entity, bone) = (
         entity.with_choices("name", |world, _| entity_names(world)),
-        bone.with_choices("name", |world, inputs| {
-            inputs[0]
-                .as_entity()
-                .map(|skeleton| bone_names(world, skeleton))
-                .unwrap_or_default()
+        bone.with_choices("name", |world, inputs| match inputs[0].as_entity() {
+            Some(skeleton) => bone_names(world, skeleton),
+            None => world
+                .get_resource::<crate::view::PreviewBones>()
+                .map(|bones| bones.0.clone())
+                .unwrap_or_default(),
         }),
     );
     app.register_flow_node(entity)
@@ -56,10 +64,8 @@ pub(crate) fn register(app: &mut App) {
             "Skeleton",
             &[("entity", PortKind::Entity)],
             &[("skeleton", PortKind::Entity)],
-            |world, _, inputs| {
-                let skeleton = inputs[0]
-                    .as_entity()
-                    .and_then(|entity| skeleton_of(world, entity));
+            |world, entity, inputs| {
+                let skeleton = skeleton_of(world, inputs[0].as_entity().unwrap_or(entity));
                 vec![FlowValue::Entity(skeleton)]
             },
         ))
@@ -100,7 +106,109 @@ pub(crate) fn register(app: &mut App) {
             },
         )
         .with_default("window", FlowValue::Float(0.3)),
+    )
+    .register_flow_node(
+        FlowNodeType::step(
+            SMOOTH_POLAR,
+            "Smooth Polar",
+            &[("vector", PortKind::Vec2), ("time", PortKind::Float)],
+            &[
+                ("x", PortKind::Float),
+                ("y", PortKind::Float),
+                ("vector", PortKind::Vec2),
+            ],
+            |world, _, inputs, memory| {
+                let dt = world.get_resource::<Time>().map_or(0.0, Time::delta_secs);
+                let target = inputs[0].as_vec2();
+                let mut spring = match memory.as_slice() {
+                    [
+                        FlowValue::Vec2(at),
+                        FlowValue::Float(turning),
+                        FlowValue::Float(growing),
+                    ] => PolarSpring {
+                        at: *at,
+                        turning: *turning,
+                        growing: *growing,
+                    },
+                    _ => PolarSpring::at(target),
+                };
+                let smoothed = spring.step(target, inputs[1].as_f32(), dt);
+                *memory = vec![
+                    FlowValue::Vec2(spring.at),
+                    FlowValue::Float(spring.turning),
+                    FlowValue::Float(spring.growing),
+                ];
+                vec![
+                    FlowValue::Float(smoothed.x),
+                    FlowValue::Float(smoothed.y),
+                    FlowValue::Vec2(smoothed),
+                ]
+            },
+        )
+        .with_default("time", FlowValue::Float(0.15)),
     );
+}
+
+/// What Smooth Polar remembers: where its vector is, and how fast it
+/// turns (radians a second) and grows (units a second).
+#[derive(Clone, Copy, Debug, Default, PartialEq)]
+pub struct PolarSpring {
+    pub at: Vec2,
+    pub turning: f32,
+    pub growing: f32,
+}
+
+impl PolarSpring {
+    /// Still, at `at`.
+    pub fn at(at: Vec2) -> Self {
+        Self { at, ..default() }
+    }
+
+    /// One step of `dt` seconds on toward `target`, most of the way there
+    /// (90%) in `time` seconds, easing in and out: its direction turns
+    /// toward the target's the short way round, its length goes toward the
+    /// target's, each on a critically damped spring. A vector turning half
+    /// a turn goes round by a side, rather than through zero. From zero, it
+    /// heads the target's way at once; toward zero, it keeps its way. No
+    /// `time`: the target.
+    pub fn step(&mut self, target: Vec2, time: f32, dt: f32) -> Vec2 {
+        if time <= 0.0 {
+            *self = Self::at(target);
+            return target;
+        }
+        let rate = 4.0 / time;
+        let (length, growing) =
+            smooth_damp(self.at.length(), target.length(), self.growing, rate, dt);
+        let (way, turning) = match (self.at.try_normalize(), target.try_normalize()) {
+            (Some(from), to) => {
+                let angle = to.map_or(0.0, |to| from.angle_to(to));
+                let (turned, turning) = smooth_damp(0.0, angle, self.turning, rate, dt);
+                (Vec2::from_angle(turned).rotate(from), turning)
+            }
+            (None, Some(to)) => (to, 0.0),
+            (None, None) => (Vec2::ZERO, 0.0),
+        };
+        *self = Self {
+            at: way * length.max(0.0),
+            turning,
+            growing,
+        };
+        self.at
+    }
+}
+
+/// `current`, going at `speed`, one step of `dt` on toward `target` on a
+/// critically damped spring of `rate` (radians a second): where it is then,
+/// and its speed. Unity's `SmoothDamp`, its smooth time `2 / rate`.
+fn smooth_damp(current: f32, target: f32, speed: f32, rate: f32, dt: f32) -> (f32, f32) {
+    let x = rate * dt;
+    let decay = 1.0 / (1.0 + x + 0.48 * x * x + 0.235 * x * x * x);
+    let change = current - target;
+    let pull = (speed + rate * change) * dt;
+    (
+        target + (change + pull) * decay,
+        (speed - rate * pull) * decay,
+    )
 }
 
 /// One step of a double tap: whether the button is held, and whether it
@@ -366,6 +474,54 @@ pub(crate) mod tests {
             ["head", "neck"]
         );
         assert!(choices(BONE, &[FlowValue::Entity(None)]).is_empty());
+        // Without a skeleton (as in views, running nodes for no entity):
+        // the preview character's.
+        world.insert_resource(crate::view::PreviewBones(vec![
+            "pelvis".into(),
+            "spine_01".into(),
+        ]));
+        let choices = types.get(BONE).unwrap().choices_for("name").unwrap();
+        assert_eq!(
+            choices(&world, &[FlowValue::Entity(None)]),
+            ["pelvis", "spine_01"]
+        );
+    }
+
+    #[test]
+    fn a_smoothed_vector_turns_round_and_gets_there_in_its_time() {
+        let dt = 1.0 / 60.0;
+        let follow = |from: Vec2, to: Vec2, seconds: f32| {
+            let mut spring = PolarSpring::at(from);
+            let mut path = vec![from];
+            for _ in 0..(seconds / dt).round() as usize {
+                path.push(spring.step(to, 0.15, dt));
+            }
+            path
+        };
+        // Jog ahead to jog ahead-right: the length kept, the way turning,
+        // slowly at first, most of the way in 0.15 s, all of it soon after.
+        let ahead_right = Vec2::new(1.0, 1.0).normalize() * 3.5;
+        let turned = |at: Vec2| Vec2::Y.angle_to(at) / Vec2::Y.angle_to(ahead_right);
+        let path = follow(Vec2::Y * 3.5, ahead_right, 0.3);
+        assert!(path.iter().all(|at| (at.length() - 3.5).abs() < 1e-3));
+        assert!(turned(path[1]) < 0.1, "{}", turned(path[1]));
+        assert!(
+            (0.85..0.97).contains(&turned(path[9])),
+            "{}",
+            turned(path[9])
+        );
+        assert!(path.iter().all(|&at| turned(at) < 1.0 + 1e-3));
+        assert!(path.last().unwrap().distance(ahead_right) < 0.02);
+        // Half a turn: round by a side, not through zero.
+        let path = follow(Vec2::Y * 3.5, Vec2::NEG_Y * 3.5, 0.4);
+        assert!(path.iter().all(|at| at.length() > 3.4));
+        assert!(path.last().unwrap().distance(Vec2::NEG_Y * 3.5) < 0.05);
+        // Stopping keeps the way; starting takes the target's.
+        let stop = PolarSpring::at(Vec2::X * 2.0).step(Vec2::ZERO, 0.15, dt);
+        assert!(stop.x > 1.5 && stop.x < 2.0 && stop.y == 0.0, "{stop}");
+        let start = PolarSpring::at(Vec2::ZERO).step(Vec2::NEG_X, 0.15, dt);
+        assert!(start.x < 0.0 && start.y == 0.0, "{start}");
+        assert_eq!(PolarSpring::at(Vec2::Y).step(Vec2::X, 0.0, dt), Vec2::X);
     }
 
     /// Runs a button through steps of 0.05 s: what the node gave each step.

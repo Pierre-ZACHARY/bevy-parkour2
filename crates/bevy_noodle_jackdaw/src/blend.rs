@@ -8,7 +8,15 @@
 //! samples, the end one plays alone. In 2D, inputs `x` and `y` pick the
 //! triangle around them in the samples' Delaunay triangulation and mix its
 //! corners by their barycentric weights; outside, the nearest point on the
-//! samples' hull.
+//! samples' hull. A 2D space whose nearest samples ring the origin (walks in
+//! every direction) mixes an input inside the ring where it would be on it,
+//! its clips slowed in proportion (see [`ring_input`]).
+//!
+//! A blend space's axes run from 0 or below to its samples' furthest,
+//! unless set otherwise in [`FlowNode::axes`] (see [`space_range`]): an end
+//! set there frames the editor's plot and holds the input within it before
+//! it mixes (see [`clamp_input`]). The axes may hold a grid, for the editor
+//! to snap samples to.
 //!
 //! Samples play in phase. A clip holds sync cycles (for a walk: a left
 //! step then a right one), the first starting some way through it (see
@@ -25,7 +33,7 @@
 //! A Select 2D node (`blend/select_2d`) holds samples on a plane too, but
 //! picks one instead of mixing them: the nearest to its inputs `x` and `y`
 //! as they were when it was entered, measured on the plane as drawn (each
-//! axis scaled to its range, see [`axis_range`]). Its player plays the
+//! axis scaled to its range, see [`space_range`]). Its player plays the
 //! sample's clip once and says how far it is with [`BlendSelection`],
 //! which the node's `time` and `finished` outputs read. A stop, say: `x` a
 //! speed and `y` the gait's phase, picks the stop for that speed on the
@@ -206,16 +214,73 @@ pub(crate) fn register(app: &mut App) {
 }
 
 /// Each of blend space `space`'s samples' weight with its input at
-/// `input` (`x` only, in 1D); a select's: 1 for the one it picks.
+/// `input` (`x` only, in 1D), held within the ends its axes are set to (see
+/// [`clamp_input`]); a select's: 1 for the one it picks.
 pub fn sample_weights(space: &FlowNode, input: Vec2) -> Vec<f32> {
+    let input = clamp_input(space, input);
     let points: Vec<Vec2> = space.samples.iter().map(|s| s.at).collect();
     if space.kind == SELECT_2D {
-        let scale = Vec2::new(axis_span(&space.samples, 0), axis_span(&space.samples, 1));
-        weights_nearest(&points, input, scale)
+        weights_nearest(&points, input, space_range(space).size())
     } else if space.kind == BLEND_SPACE_2D {
-        weights_2d(&points, input)
+        weights_2d(&points, ring_input(&points, input).0)
     } else {
         weights_1d(&points.iter().map(|p| p.x).collect::<Vec<_>>(), input.x)
+    }
+}
+
+/// How much further than the nearest a sample may be from the origin and
+/// still be in the ring [`ring_input`] goes out to, as a fraction.
+const RING: f32 = 0.01;
+
+/// Where a 2D blend space with samples at `points` mixes them for input
+/// `p`, and how fast their clips play there. With no sample at the origin
+/// and the samples nearest it (as near as the nearest, within [`RING`])
+/// all round it, an input inside their ring goes out along its direction to
+/// it, its clips slowed in proportion: as in 1D below the first sample. A
+/// locomotion's walks all round, its input a velocity: slower than a walk,
+/// it walks slower, never mixing opposite walks. At the origin, out along
+/// +y. Otherwise, as it is.
+pub fn ring_input(points: &[Vec2], p: Vec2) -> (Vec2, f32) {
+    let nearest = points
+        .iter()
+        .map(|point| point.length())
+        .fold(f32::INFINITY, f32::min);
+    if !nearest.is_finite() || nearest < 1e-3 {
+        return (p, 1.0);
+    }
+    let mut ring: Vec<Vec2> = points
+        .iter()
+        .copied()
+        .filter(|point| point.length() <= nearest * (1.0 + RING))
+        .collect();
+    ring.sort_by(|a, b| a.to_angle().total_cmp(&b.to_angle()));
+    ring.dedup();
+    let edges: Vec<(Vec2, Vec2)> = (0..ring.len())
+        .map(|i| (ring[i], ring[(i + 1) % ring.len()]))
+        .collect();
+    // Round the origin: no gap of half a turn or more between neighbours.
+    let round = ring.len() >= 3 && edges.iter().all(|(a, b)| a.perp_dot(*b) > 1e-6);
+    if !round {
+        return (p, 1.0);
+    }
+    let direction = p.normalize_or(Vec2::Y);
+    // How far out along it the ring is: where it crosses an edge.
+    let out = edges
+        .iter()
+        .filter_map(|&(a, b)| {
+            let edge = b - a;
+            let across = direction.perp_dot(edge);
+            let s = a.perp_dot(direction) / across;
+            (across.abs() > 1e-9 && (-1e-5..=1.0 + 1e-5).contains(&s))
+                .then(|| a.perp_dot(edge) / across)
+        })
+        .filter(|&t| t > 0.0)
+        .fold(f32::INFINITY, f32::min);
+    let length = p.length();
+    if !out.is_finite() || length >= out {
+        (p, 1.0)
+    } else {
+        (direction * out, length / out)
     }
 }
 
@@ -231,10 +296,39 @@ pub fn axis_range(samples: &[BlendSample], axis: usize) -> (f32, f32) {
     }
 }
 
-/// How long axis `axis` of [`axis_range`] is.
-fn axis_span(samples: &[BlendSample], axis: usize) -> f32 {
-    let (low, high) = axis_range(samples, axis);
-    high - low
+/// Where blend space `space`'s axes run: the ends set in its
+/// [`FlowNode::axes`], else [`axis_range`]'s. Never empty.
+pub fn space_range(space: &FlowNode) -> Rect {
+    let axes = space.axes.clone().unwrap_or_default();
+    let [x, y] = [(&axes.x, 0), (&axes.y, 1)].map(|(set, axis)| {
+        let (low, high) = axis_range(&space.samples, axis);
+        let (low, high) = (set.min.unwrap_or(low), set.max.unwrap_or(high));
+        if high - low < 1e-3 {
+            (low, low + 1.0)
+        } else {
+            (low, high)
+        }
+    });
+    Rect::new(x.0, y.0, x.1, y.1)
+}
+
+/// `input` held within the ends blend space `space`'s axes are set to, if
+/// they are: an end left to the samples holds nothing back.
+pub fn clamp_input(space: &FlowNode, input: Vec2) -> Vec2 {
+    let Some(axes) = &space.axes else {
+        return input;
+    };
+    let range = space_range(space);
+    let mut input = input;
+    for (axis, set) in [&axes.x, &axes.y].into_iter().enumerate() {
+        if set.min.is_some() {
+            input[axis] = input[axis].max(range.min[axis]);
+        }
+        if set.max.is_some() {
+            input[axis] = input[axis].min(range.max[axis]);
+        }
+    }
+    input
 }
 
 /// Each sample's weight for `p`, samples at `points`: 1 for the nearest
@@ -458,13 +552,21 @@ fn line_edges(points: &[Vec2]) -> Vec<[usize; 2]> {
     order.windows(2).map(|pair| [pair[0], pair[1]]).collect()
 }
 
-/// How fast blend space `space`'s clips play for speed `x`, in 1D: as they
-/// are between its samples, in proportion to `x` below the first or beyond
-/// the last. In 2D, as they are.
-pub fn playrate(space: &FlowNode, x: f32) -> f32 {
+/// How fast blend space `space`'s clips play for its input at `at`. In 1D,
+/// for speed `at.x`: as they are between its samples, in proportion to it
+/// below the first or beyond the last. In 2D, as they are, but slowed
+/// inside its ring (see [`ring_input`]). The input held within its axes'
+/// set ends.
+pub fn playrate(space: &FlowNode, at: Vec2) -> f32 {
+    let at = clamp_input(space, at);
+    if space.kind == BLEND_SPACE_2D {
+        let points: Vec<Vec2> = space.samples.iter().map(|s| s.at).collect();
+        return ring_input(&points, at).1;
+    }
     if space.kind != BLEND_SPACE_1D {
         return 1.0;
     }
+    let x = at.x;
     let points: Vec<f32> = space.samples.iter().map(|s| s.at.x).collect();
     let low = points.iter().copied().fold(f32::INFINITY, f32::min);
     let high = points.iter().copied().fold(f32::NEG_INFINITY, f32::max);
@@ -496,6 +598,7 @@ pub fn synced_duration(durations: &[f32], weights: &[f32]) -> f32 {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::model::{AxisSettings, BlendAxes};
 
     fn close(a: &[f32], b: &[f32]) -> bool {
         a.len() == b.len() && a.iter().zip(b).all(|(a, b)| (a - b).abs() < 1e-4)
@@ -619,6 +722,108 @@ mod tests {
         let same = [Vec2::ONE, Vec2::ONE];
         assert!(close(&weights_2d(&same, Vec2::ZERO), &[0.5, 0.5]));
         assert!(weights_2d(&[], Vec2::ZERO).is_empty());
+    }
+
+    #[test]
+    fn set_axis_ends_frame_the_space_and_hold_its_input() {
+        let space = |axes: Option<BlendAxes>| FlowNode {
+            kind: BLEND_SPACE_1D.into(),
+            samples: [1.5, 3.0, 6.0]
+                .map(|x| BlendSample {
+                    kind: "clip".into(),
+                    title: "clip".into(),
+                    at: Vec2::new(x, 0.0),
+                })
+                .into(),
+            axes,
+            ..default()
+        };
+        // Left to the samples: from 0 to the furthest, the input free.
+        let free = space(None);
+        assert_eq!(space_range(&free), Rect::new(0.0, 0.0, 6.0, 1.0));
+        assert_eq!(playrate(&free, Vec2::X * 9.0), 1.5);
+        // Its high end set to 7.5: no faster than 7.5 / 6.
+        let held = space(Some(BlendAxes {
+            x: AxisSettings {
+                max: Some(7.5),
+                ..default()
+            },
+            ..default()
+        }));
+        assert_eq!(space_range(&held), Rect::new(0.0, 0.0, 7.5, 1.0));
+        assert_eq!(playrate(&held, Vec2::X * 9.0), 1.25);
+        // Below, its low end left to the samples: free.
+        assert_eq!(
+            clamp_input(&held, Vec2::new(-2.0, 9.0)),
+            Vec2::new(-2.0, 9.0)
+        );
+        // Its low end set to 2: Walk and Jog mix from there.
+        let low = space(Some(BlendAxes {
+            x: AxisSettings {
+                min: Some(2.0),
+                ..default()
+            },
+            ..default()
+        }));
+        assert!(close(
+            &sample_weights(&low, Vec2::ZERO),
+            &sample_weights(&low, Vec2::X * 2.0)
+        ));
+        assert!(sample_weights(&low, Vec2::ZERO)[1] > 0.3);
+        // Ends set the wrong way round: still a range.
+        let crossed = space(Some(BlendAxes {
+            x: AxisSettings {
+                min: Some(4.0),
+                max: Some(1.0),
+                ..default()
+            },
+            ..default()
+        }));
+        assert_eq!(space_range(&crossed).width(), 1.0);
+        assert_eq!(clamp_input(&crossed, Vec2::ZERO).x, 4.0);
+    }
+
+    #[test]
+    fn inside_a_ring_of_samples_the_input_goes_out_to_it_slower() {
+        // Walks at 1 in four directions, jogs at 2.
+        let points: Vec<Vec2> = [1.0, 2.0]
+            .into_iter()
+            .flat_map(|r| [Vec2::Y, Vec2::X, Vec2::NEG_Y, Vec2::NEG_X].map(|d| d * r))
+            .collect();
+        let (at, rate) = ring_input(&points, Vec2::new(0.0, 0.5));
+        assert!(at.distance(Vec2::Y) < 1e-5 && (rate - 0.5).abs() < 1e-5);
+        // Between two walks: on the edge between them, by its length there.
+        let (at, rate) = ring_input(&points, Vec2::splat(0.25));
+        assert!(at.distance(Vec2::splat(0.5)) < 1e-5, "{at}");
+        assert!((rate - 0.5).abs() < 1e-5, "{rate}");
+        let weights = weights_2d(&points, at);
+        assert!(close(&weights[..2], &[0.5, 0.5]), "{weights:?}");
+        // Standing: forward, not moving.
+        assert_eq!(ring_input(&points, Vec2::ZERO), (Vec2::Y, 0.0));
+        // Out of the ring, as it is.
+        let past = Vec2::new(0.0, 1.5);
+        assert_eq!(ring_input(&points, past), (past, 1.0));
+        // A sample at the origin, or none behind: no ring.
+        let centred = [points.as_slice(), &[Vec2::ZERO]].concat();
+        assert_eq!(ring_input(&centred, Vec2::Y * 0.5), (Vec2::Y * 0.5, 1.0));
+        let ahead = [Vec2::Y, Vec2::X, Vec2::NEG_X];
+        assert_eq!(ring_input(&ahead, Vec2::Y * 0.5), (Vec2::Y * 0.5, 1.0));
+        // Playing a 2D space slows it there too.
+        let space = FlowNode {
+            kind: BLEND_SPACE_2D.into(),
+            samples: points
+                .iter()
+                .map(|&at| BlendSample {
+                    kind: "clip".into(),
+                    title: "Clip".into(),
+                    at,
+                })
+                .collect(),
+            ..default()
+        };
+        assert!((playrate(&space, Vec2::new(-0.5, 0.0)) - 0.5).abs() < 1e-5);
+        let weights = sample_weights(&space, Vec2::new(-0.5, 0.0));
+        assert!((weights[3] - 1.0).abs() < 1e-5, "{weights:?}");
     }
 
     #[test]

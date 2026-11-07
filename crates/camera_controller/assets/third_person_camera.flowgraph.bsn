@@ -151,6 +151,11 @@ bevy_noodle_jackdaw::model::FlowGraph {
                     kind: bevy_noodle_jackdaw::model::PortKind::Float,
                     value: core::option::Option::Some(bevy_noodle_jackdaw::model::FlowValue::Float(0.30000001192092896)),
                 },
+                bevy_noodle_jackdaw::model::PortDef {
+                    name: "face_on_release",
+                    kind: bevy_noodle_jackdaw::model::PortKind::Bool,
+                    value: core::option::Option::Some(bevy_noodle_jackdaw::model::FlowValue::Bool(true)),
+                },
             ],
             outputs: [],
             graph: core::option::Option::None,

@@ -27,10 +27,15 @@ pub type ChoicesFn = Arc<dyn Fn(&World, &[FlowValue]) -> Vec<String> + Send + Sy
 /// `C` on `entity` or, failing that, on its nearest ancestor that has one:
 /// a graph run for a character's model reads the character's components.
 pub fn nearest_component<C: Component>(world: &World, entity: Entity) -> Option<&C> {
+    world.get::<C>(nearest_with::<C>(world, entity)?)
+}
+
+/// `entity` if it has `C`, else its nearest ancestor that has one.
+pub(crate) fn nearest_with<C: Component>(world: &World, entity: Entity) -> Option<Entity> {
     let mut entity = entity;
     loop {
-        if let Some(component) = world.get::<C>(entity) {
-            return Some(component);
+        if world.get::<C>(entity).is_some() {
+            return Some(entity);
         }
         entity = world.get::<ChildOf>(entity)?.parent();
     }
@@ -187,6 +192,7 @@ impl FlowNodeType {
             outputs: self.outputs.clone(),
             graph: self.graph.clone(),
             samples: Vec::new(),
+            axes: None,
         }
     }
 }

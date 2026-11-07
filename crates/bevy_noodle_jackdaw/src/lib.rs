@@ -18,6 +18,8 @@ mod axis;
 pub mod blend;
 mod bsn;
 #[cfg(feature = "view")]
+mod clip_preview;
+#[cfg(feature = "view")]
 mod current;
 #[cfg(feature = "view")]
 mod curves;
@@ -32,6 +34,8 @@ pub mod model;
 pub mod nodes;
 mod registry;
 mod run;
+#[cfg(feature = "view")]
+mod skeleton_preview;
 
 #[cfg(feature = "leafwing")]
 pub mod leafwing;
@@ -64,8 +68,8 @@ pub use bsn::{
     write_catalog_file,
 };
 pub use model::{
-    BlendSample, Easing, FlowGraph, FlowLink, FlowNode, FlowNodeCatalog, FlowTie, FlowValue,
-    FlowVariable, PortDef, PortKind, VAR_GET, VAR_SET,
+    AxisSettings, BlendAxes, BlendSample, Easing, FlowGraph, FlowLink, FlowNode, FlowNodeCatalog,
+    FlowTie, FlowValue, FlowVariable, PortDef, PortKind, VAR_GET, VAR_SET,
 };
 pub use registry::{
     ApplyFn, ChoicesFn, ComputeFn, FlowGraphAppExt, FlowNodeType, FlowNodeTypes, NodeRun, StepFn,
@@ -85,6 +89,8 @@ impl Plugin for FlowGraphTypesPlugin {
         app.register_type::<FlowGraph>()
             .register_type::<FlowNode>()
             .register_type::<BlendSample>()
+            .register_type::<BlendAxes>()
+            .register_type::<AxisSettings>()
             .register_type::<FlowNodeCatalog>()
             .register_type::<FlowLink>()
             .register_type::<FlowTie>()

@@ -1,7 +1,12 @@
 //! Blend space previews: a selected blend space node shows its blend on a
-//! character, under its axis (see [`BlendPreviewSlot`]). For the editor,
+//! character, under its axis (see [`BlendPreviewSlot`]); a selected clip
+//! node, its clip, under its ports; a selected Skeleton or Bone node, the
+//! character at rest, its skeleton drawn over it and the bones picked lit
+//! (see [`SkeletonPreview`]). For the editor,
 //! which plays nothing of the game's: the character and the clips are the
-//! game's [`BlendPreviewAssets`], read from its node catalog.
+//! game's [`BlendPreviewAssets`], read from its node catalog. The
+//! character's bone names go to [`PreviewBones`], for Bone nodes to pick
+//! from.
 //!
 //! Each slot showing a blend gets a stage of its own, far from the scene and
 //! on render layers of its own: a camera drawing into an image the slot
@@ -14,7 +19,8 @@
 use bevy::app::{HierarchyPropagatePlugin, Propagate};
 use bevy::camera::RenderTarget;
 use bevy::camera::visibility::RenderLayers;
-use bevy::gltf::Gltf;
+use bevy::gltf::{Gltf, GltfNode, GltfSkin};
+use bevy::mesh::skinning::SkinnedMesh;
 use bevy::platform::collections::HashMap;
 use bevy::prelude::*;
 use bevy::render::render_resource::{Extent3d, TextureFormat};
@@ -22,7 +28,8 @@ use bevy::world_serialization::WorldAssetRoot;
 use bevy_noodle_jackdaw::blend::{
     BlendPreviewAssets, PreviewClip, playrate, sample_weights, synced_duration,
 };
-use bevy_noodle_jackdaw::view::{BlendPreview, BlendPreviewSlot};
+use bevy_noodle_jackdaw::nodes::skeleton_of;
+use bevy_noodle_jackdaw::view::{BlendPreview, BlendPreviewSlot, PreviewBones, SkeletonPreview};
 use skeleton_retarget::{Retarget, SkeletonRetargetPlugin};
 
 /// The render layers stages take, one each from here up: above those an
@@ -36,6 +43,12 @@ const EYE: Vec3 = Vec3::new(1.0, 1.25, 2.4);
 const LOOK_AT: Vec3 = Vec3::new(0.0, 0.88, 0.0);
 const BACKGROUND: Color = Color::srgb_u8(30, 31, 36);
 const FLOOR: Color = Color::srgb_u8(58, 60, 68);
+/// A skeleton preview's bones, and those lit, over them: colour and width
+/// (pixels).
+const BONE: (Color, f32) = (Color::srgb_u8(150, 155, 168), 1.5);
+const LIT: (Color, f32) = (Color::srgb_u8(255, 166, 38), 3.0);
+/// The ring round a lit bone's joint, in metres.
+const JOINT: f32 = 0.03;
 /// The image's largest side, in pixels.
 const MAX_SIDE: u32 = 2048;
 /// Sync cycles played wrap after this many: whole cycles of any clip of up
@@ -54,10 +67,22 @@ impl Plugin for PosePreviewPlugin {
         if !app.is_plugin_added::<HierarchyPropagatePlugin<RenderLayers>>() {
             app.add_plugins(HierarchyPropagatePlugin::<RenderLayers>::new(PostUpdate));
         }
-        app.init_resource::<BlendPreviewAssets>().add_systems(
-            Update,
-            (stage_slots, bind_stages, pose_stages, fit_stages).chain(),
-        );
+        app.init_resource::<BlendPreviewAssets>()
+            .init_resource::<PreviewBones>()
+            .add_systems(
+                Update,
+                (
+                    read_bones,
+                    (
+                        stage_slots,
+                        bind_stages,
+                        pose_stages,
+                        draw_skeletons,
+                        fit_stages,
+                    )
+                        .chain(),
+                ),
+            );
     }
 }
 
@@ -72,9 +97,12 @@ pub struct PoseStage {
     model: Entity,
     /// Under the character: the clips' skeleton.
     holder: Entity,
-    library: String,
-    gltf: Handle<Gltf>,
+    /// The clips' glb; none for a skeleton preview.
+    library: Option<String>,
+    gltf: Option<Handle<Gltf>>,
     image: Handle<Image>,
+    /// A skeleton preview's lines: its bones', and its lit bones'.
+    bones: [Handle<GizmoAsset>; 2],
     /// Once the clips' skeleton drives the character's.
     bound: Option<Bound>,
     /// Sync cycles played so far.
@@ -83,7 +111,10 @@ pub struct PoseStage {
 
 #[derive(Debug)]
 struct Bound {
-    player: Entity,
+    /// The clips' skeleton's player; none for a skeleton preview.
+    player: Option<Entity>,
+    /// The character's skeleton (skinned mesh).
+    skeleton: Option<Entity>,
     /// Its graph's node for each clip kind.
     clips: HashMap<String, AnimationNodeIndex>,
 }
@@ -114,13 +145,14 @@ fn target_image(size: UVec2) -> Image {
 type Slot<'a> = (
     Entity,
     Option<&'a BlendPreview>,
+    Option<&'a SkeletonPreview>,
     Option<&'a SlotStage>,
     &'a mut Node,
 );
 
-/// Give each slot asked for a preview a stage, once the game said what to
-/// draw it with; drop stages whose slot went, or whose clips come from
-/// another library now. Show a slot while it is asked for a preview and
+/// Give each slot asked for a preview (a blend, or a skeleton) a stage,
+/// once the game said what to draw it with; drop stages whose slot went, or
+/// whose clips come from another library now. Show a slot while it is asked for a preview and
 /// its stage is ready.
 #[allow(clippy::too_many_arguments, reason = "system parameters")]
 fn stage_slots(
@@ -132,6 +164,7 @@ fn stage_slots(
     mut images: ResMut<Assets<Image>>,
     mut meshes: ResMut<Assets<Mesh>>,
     mut materials: ResMut<Assets<StandardMaterial>>,
+    mut gizmos: ResMut<Assets<GizmoAsset>>,
     mut commands: Commands,
 ) {
     for (stage, PoseStage { slot, .. }, _) in &stages {
@@ -140,12 +173,13 @@ fn stage_slots(
         }
     }
     let mut layers: Vec<usize> = stages.iter().map(|(_, stage, _)| stage.layer).collect();
-    for (slot, preview, staged, mut node) in &mut slots {
+    for (slot, preview, skeleton, staged, mut node) in &mut slots {
         let library = preview.and_then(|preview| library_of(preview, &assets));
+        let wanted = library.is_some() || skeleton.is_some();
         let mut staged = staged.map(|staged| staged.0);
         if let Some(stage) = staged
             && let Ok((_, PoseStage { library: had, .. }, _)) = stages.get(stage)
-            && library.is_some_and(|library| library != had)
+            && library.is_some_and(|library| had.as_deref() != Some(library))
         {
             commands.entity(stage).despawn();
             commands.entity(slot).remove::<SlotStage>();
@@ -153,7 +187,7 @@ fn stage_slots(
         }
         let ready = match staged.and_then(|stage| stages.get_mut(stage).ok()) {
             Some((_, stage, mut visibility)) => {
-                let ready = preview.is_some() && stage.bound.is_some();
+                let ready = wanted && stage.bound.is_some();
                 visibility.set_if_neq(if ready {
                     Visibility::Inherited
                 } else {
@@ -167,7 +201,7 @@ fn stage_slots(
                 ready
             }
             None => {
-                if let Some(library) = library.filter(|_| !assets.model.is_empty()) {
+                if wanted && !assets.model.is_empty() {
                     let layer = (FIRST_LAYER..)
                         .find(|l| !layers.contains(l))
                         .unwrap_or(FIRST_LAYER);
@@ -175,7 +209,7 @@ fn stage_slots(
                     let stage = spawn_stage(
                         &mut commands,
                         &asset_server,
-                        (&mut images, &mut meshes, &mut materials),
+                        (&mut images, &mut meshes, &mut materials, &mut gizmos),
                         slot,
                         layer,
                         &assets.model,
@@ -194,20 +228,22 @@ fn stage_slots(
 }
 
 /// Spawn `slot`'s stage on render layer `layer`: the character `model`
-/// (a glTF), the clips' skeleton from `library` under it, a camera drawing
-/// into an image the slot shows, a light and a floor.
+/// (a glTF), the clips' skeleton from `library` under it (if any), a camera
+/// drawing into an image the slot shows, a light, a floor, and lines for
+/// the character's skeleton, drawn over it.
 fn spawn_stage(
     commands: &mut Commands,
     asset_server: &AssetServer,
-    (images, meshes, materials): (
+    (images, meshes, materials, gizmos): (
         &mut Assets<Image>,
         &mut Assets<Mesh>,
         &mut Assets<StandardMaterial>,
+        &mut Assets<GizmoAsset>,
     ),
     slot: Entity,
     layer: usize,
     model: &str,
-    library: &str,
+    library: Option<&str>,
 ) -> Entity {
     let image = images.add(target_image(UVec2::splat(64)));
     let root = commands
@@ -255,6 +291,19 @@ fn spawn_stage(
         Transform::from_rotation(Quat::from_rotation_x(-std::f32::consts::FRAC_PI_2)),
         ChildOf(root),
     ));
+    let bones = [BONE, LIT].map(|(_, width)| {
+        let handle = gizmos.add(GizmoAsset::default());
+        commands.spawn((
+            Gizmo {
+                handle: handle.clone(),
+                line_config: GizmoLineConfig { width, ..default() },
+                // Over the character.
+                depth_bias: -1.0,
+            },
+            ChildOf(root),
+        ));
+        handle
+    });
     let scene = asset_server.load(GltfAssetLabel::Scene(0).from_asset(model.to_owned()));
     let character = commands
         .spawn((
@@ -278,9 +327,10 @@ fn spawn_stage(
         camera,
         model: character,
         holder,
-        library: library.to_owned(),
-        gltf: asset_server.load(library.to_owned()),
+        library: library.map(str::to_owned),
+        gltf: library.map(|library| asset_server.load(library.to_owned())),
         image,
+        bones,
         bound: None,
         cycles: 0.0,
     });
@@ -290,9 +340,11 @@ fn spawn_stage(
 /// Once the library is loaded, spawn its scene in the holder; once both
 /// skeletons are spawned, still at rest, give the clips' player the
 /// library's clips and bind the character's skeleton to it. As the game
-/// binds its characters.
+/// binds its characters. Without a library, bound once the character is
+/// spawned.
 fn bind_stages(world: &mut World) {
-    let unbound: Vec<(Entity, Entity, Entity, Handle<Gltf>, String)> = world
+    type Unbound = (Entity, Entity, Entity, Option<Handle<Gltf>>, Option<String>);
+    let unbound: Vec<Unbound> = world
         .query::<(Entity, &PoseStage)>()
         .iter(world)
         .filter(|(_, stage)| stage.bound.is_none())
@@ -308,6 +360,19 @@ fn bind_stages(world: &mut World) {
         })
         .collect();
     for (stage, model, holder, gltf, library) in unbound {
+        let skeleton = skeleton_of(world, model);
+        let Some((gltf, library)) = gltf.zip(library) else {
+            if skeleton.is_some()
+                && let Some(mut stage) = world.get_mut::<PoseStage>(stage)
+            {
+                stage.bound = Some(Bound {
+                    player: None,
+                    skeleton,
+                    clips: default(),
+                });
+            }
+            continue;
+        };
         let Some(gltf) = world.resource::<Assets<Gltf>>().get(&gltf) else {
             continue;
         };
@@ -342,7 +407,11 @@ fn bind_stages(world: &mut World) {
         world.entity_mut(player).insert(AnimationGraphHandle(graph));
         world.entity_mut(model).insert(retarget);
         if let Some(mut stage) = world.get_mut::<PoseStage>(stage) {
-            stage.bound = Some(Bound { player, clips });
+            stage.bound = Some(Bound {
+                player: Some(player),
+                skeleton,
+                clips,
+            });
         }
     }
 }
@@ -404,7 +473,10 @@ fn pose_stages(
         let Ok(preview) = previews.get(stage.slot) else {
             continue;
         };
-        let plays = plays(preview, &assets, &stage.library);
+        let Some(library) = stage.library.as_deref() else {
+            continue;
+        };
+        let plays = plays(preview, &assets, library);
         let cycle = synced_duration(
             &plays
                 .iter()
@@ -412,12 +484,12 @@ fn pose_stages(
                 .collect::<Vec<_>>(),
             &plays.iter().map(|(_, weight)| *weight).collect::<Vec<_>>(),
         );
-        let speed = playrate(&preview.space, preview.at.x);
+        let speed = playrate(&preview.space, preview.at);
         stage.cycles = (stage.cycles + time.delta_secs() * speed / cycle.max(1e-3)) % WRAP;
         let Some(bound) = &stage.bound else {
             continue;
         };
-        let Ok(mut player) = players.get_mut(bound.player) else {
+        let Some(Ok(mut player)) = bound.player.map(|player| players.get_mut(player)) else {
             continue;
         };
         for (kind, index) in &bound.clips {
@@ -433,6 +505,137 @@ fn pose_stages(
                     player.stop(*index);
                 }
                 _ => {}
+            }
+        }
+    }
+}
+
+/// Read the character's bone names into [`PreviewBones`] once it is
+/// loaded: its skins' joints'.
+fn read_bones(
+    assets: Res<BlendPreviewAssets>,
+    asset_server: Res<AssetServer>,
+    gltfs: Res<Assets<Gltf>>,
+    skins: Res<Assets<GltfSkin>>,
+    nodes: Res<Assets<GltfNode>>,
+    mut bones: ResMut<PreviewBones>,
+    // The model read, and its glTF until read.
+    mut reading: Local<(String, Option<Handle<Gltf>>)>,
+) {
+    if reading.0 != assets.model {
+        let gltf = (!assets.model.is_empty()).then(|| asset_server.load(assets.model.clone()));
+        *reading = (assets.model.clone(), gltf);
+        if !bones.0.is_empty() {
+            bones.0.clear();
+        }
+    }
+    let Some(gltf) = reading.1.as_ref().and_then(|gltf| gltfs.get(gltf)) else {
+        return;
+    };
+    let mut names: Vec<String> = gltf
+        .skins
+        .iter()
+        .filter_map(|skin| skins.get(skin))
+        .flat_map(|skin| &skin.joints)
+        .filter_map(|joint| nodes.get(joint))
+        .map(|joint| joint.name.clone())
+        .collect();
+    names.sort();
+    names.dedup();
+    if bones.0 != names {
+        bones.0 = names;
+    }
+    reading.1 = None;
+}
+
+/// A joint of a skeleton drawn: where it is, its parent's index among the
+/// joints drawn (if its parent is one), whether it is lit.
+#[derive(Clone, Copy, Debug, PartialEq)]
+struct Joint {
+    at: Vec3,
+    parent: Option<usize>,
+    lit: bool,
+}
+
+/// The lines drawing `joints`' bones: from each joint's parent to it, lit
+/// when the parent (the bone's joint) is.
+fn bone_lines(joints: &[Joint]) -> Vec<(Vec3, Vec3, bool)> {
+    joints
+        .iter()
+        .filter_map(|joint| {
+            let parent = joints[joint.parent?];
+            Some((parent.at, joint.at, parent.lit))
+        })
+        .collect()
+}
+
+/// Draw each skeleton preview's character's skeleton over it: its bones,
+/// those named lit lit and their joints ringed. Not its IK targets (UE5
+/// Manny's `ik_*` bones, away from the body), nor from its top joint (on
+/// the floor).
+fn draw_skeletons(
+    stages: Query<(&PoseStage, &GlobalTransform)>,
+    previews: Query<&SkeletonPreview>,
+    skins: Query<&SkinnedMesh>,
+    transforms: Query<(&GlobalTransform, Option<&ChildOf>, Option<&Name>)>,
+    mut gizmos: ResMut<Assets<GizmoAsset>>,
+) {
+    for (stage, root) in &stages {
+        let Ok(preview) = previews.get(stage.slot) else {
+            continue;
+        };
+        let Some(Ok(skin)) = stage
+            .bound
+            .as_ref()
+            .and_then(|bound| bound.skeleton)
+            .map(|skeleton| skins.get(skeleton))
+        else {
+            continue;
+        };
+        let to_stage = root.affine().inverse();
+        let found: Vec<_> = skin
+            .joints
+            .iter()
+            .map(|&joint| transforms.get(joint).ok())
+            .collect();
+        let parents: Vec<Option<usize>> = found
+            .iter()
+            .map(|found| {
+                let parent = (*found)?.1?.parent();
+                skin.joints.iter().position(|j| *j == parent)
+            })
+            .collect();
+        let joints: Vec<Joint> = found
+            .iter()
+            .zip(&parents)
+            .map(|(found, parent)| {
+                let Some((transform, _, name)) = *found else {
+                    return Joint {
+                        at: Vec3::ZERO,
+                        parent: None,
+                        lit: false,
+                    };
+                };
+                let name = name.map_or("", Name::as_str);
+                Joint {
+                    at: to_stage.transform_point3(transform.translation()),
+                    parent: parent
+                        .filter(|&parent| !name.starts_with("ik_") && parents[parent].is_some()),
+                    lit: preview.lit.iter().any(|lit| lit == name),
+                }
+            })
+            .collect();
+        let lines = bone_lines(&joints);
+        for (lit, (color, _)) in [(false, BONE), (true, LIT)] {
+            let Some(mut gizmo) = gizmos.get_mut(&stage.bones[lit as usize]) else {
+                continue;
+            };
+            gizmo.clear();
+            for &(from, to, _) in lines.iter().filter(|line| line.2 == lit) {
+                gizmo.line(from, to, color);
+            }
+            for joint in joints.iter().filter(|joint| lit && joint.lit) {
+                gizmo.sphere(Isometry3d::from_translation(joint.at), JOINT, color);
             }
         }
     }
@@ -525,6 +728,29 @@ mod tests {
         // From another library: nothing.
         assert!(plays(&at(2.0), &assets, "other.glb").is_empty());
         assert_eq!(library_of(&at(2.0), &assets), Some("clips.glb"));
+    }
+
+    #[test]
+    fn a_lit_bone_lights_the_lines_from_its_joint() {
+        let joint = |y: f32, parent: Option<usize>, lit: bool| Joint {
+            at: Vec3::new(0.0, y, 0.0),
+            parent,
+            lit,
+        };
+        // Pelvis, spine (lit), chest; a stray joint under no other drawn.
+        let joints = [
+            joint(1.0, None, false),
+            joint(1.2, Some(0), true),
+            joint(1.4, Some(1), false),
+            joint(9.0, None, false),
+        ];
+        assert_eq!(
+            bone_lines(&joints),
+            [
+                (Vec3::Y, Vec3::Y * 1.2, false),
+                (Vec3::Y * 1.2, Vec3::Y * 1.4, true),
+            ]
+        );
     }
 
     #[test]

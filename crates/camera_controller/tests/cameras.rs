@@ -155,15 +155,18 @@ fn the_third_person_camera_follows_aims_and_looks_around() {
     let free = scene.transform(scene.third_person);
     assert!(free.forward().x > 0.5, "{free:?}");
 
-    // Let go: back to the aim.
+    // Let go: the camera stays, the aim comes to where it looks.
     MouseButton::Middle.release(scene.app.world_mut());
     scene.frames(30);
-    let back = scene.transform(scene.third_person);
+    let stayed = scene.transform(scene.third_person);
     assert!(
-        back.rotation.angle_between(turned.rotation) < 0.02,
-        "{back:?}"
+        stayed.rotation.angle_between(free.rotation) < 0.02,
+        "{stayed:?}"
     );
-    assert_eq!(scene.aim().yaw, yaw);
+    let forward = scene.aim().forward();
+    let looks = stayed.forward().as_vec3().with_y(0.0).normalize();
+    assert!(forward.dot(looks) > 0.999, "{forward} vs {looks}");
+    assert!(turned.rotation.angle_between(free.rotation) > 0.5 && yaw != scene.aim().yaw);
 
     // The target moves; the camera follows.
     scene
@@ -175,7 +178,7 @@ fn the_third_person_camera_follows_aims_and_looks_around() {
         .x += 3.0;
     scene.frames(1);
     let moved = scene.transform(scene.third_person);
-    assert!((moved.translation.x - back.translation.x - 3.0).abs() < 0.01);
+    assert!((moved.translation.x - stayed.translation.x - 3.0).abs() < 0.01);
     _ = std::fs::remove_dir_all(assets);
 }
 

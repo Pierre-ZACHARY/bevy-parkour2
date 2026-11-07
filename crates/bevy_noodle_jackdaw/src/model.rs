@@ -269,6 +269,10 @@ pub struct FlowNode {
     /// nodes.
     #[reflect(default)]
     pub samples: Vec<BlendSample>,
+    /// How a blend space's axes are set in the editor; none: as its
+    /// samples run, with no grid (see [`crate::blend::space_range`]).
+    #[reflect(default)]
+    pub axes: Option<BlendAxes>,
 }
 
 /// One sample of a blend space: what it plays, and where it sits.
@@ -281,6 +285,29 @@ pub struct BlendSample {
     pub title: String,
     /// Where it sits: on the axis (`x`) in 1D, on the plane in 2D.
     pub at: Vec2,
+}
+
+/// A blend space's axes, as set in the editor: x, and y in 2D.
+#[derive(Reflect, Clone, PartialEq, Debug, Default)]
+#[reflect(Default)]
+pub struct BlendAxes {
+    pub x: AxisSettings,
+    pub y: AxisSettings,
+}
+
+/// One axis of a blend space: where it runs, and its grid.
+#[derive(Reflect, Clone, PartialEq, Debug, Default)]
+#[reflect(Default)]
+pub struct AxisSettings {
+    /// Its low end: the plot starts there, and the input goes no lower.
+    /// None: the samples' lowest, or 0.
+    pub min: Option<f32>,
+    /// Its high end: the plot ends there, and the input goes no higher.
+    /// None: the samples' highest, or 0.
+    pub max: Option<f32>,
+    /// How many cells of a grid cut it, which the editor snaps samples to;
+    /// 0: none, samples snap to round values.
+    pub divisions: u32,
 }
 
 impl FlowNode {

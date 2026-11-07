@@ -23,19 +23,22 @@ use crate::blend::{has_samples, is_2d};
 use crate::current::CurrentStatePlugin;
 pub use crate::current::{CURRENT, CurrentState};
 use crate::dots::{DotGrid, DotGridPlugin};
-use crate::fields::{InputRow, ValueFieldsPlugin, typing};
+use crate::fields::{InputRow, ValueFieldsPlugin, ViewNodeTypes, typing};
 use crate::levels::{FitOnceLaidOut, LevelsPlugin, PREVIEW_SIZE, spawn_breadcrumb};
 use crate::library::{NodeLibraryPlugin, spawn_node_library};
 use crate::model::{
     FlowGraph, FlowLink, FlowNode, FlowNodeCatalog, FlowTie, FlowValue, PortDef, PortKind,
 };
 use crate::run::{FlowGraphPlayback, FlowNodeState};
+pub use crate::skeleton_preview::{PreviewBones, SkeletonPreview};
 use crate::ties::{TieSelection, ZipTiesPlugin};
 use crate::wires::{AvoidNodes, WireLayoutPlugin, WireShape, spawn_wire_buttons};
 
 /// Border of a node something went through, and colour of a wire carrying a
 /// value.
 pub const ACTIVE: Color = Color::srgb(1.0, 0.72, 0.2);
+/// A renamed node's type, under its title.
+const SUBTITLE: Color = Color::srgb_u8(160, 164, 173);
 
 pub struct FlowGraphViewPlugin;
 
@@ -59,6 +62,8 @@ impl Plugin for FlowGraphViewPlugin {
             ValueFieldsPlugin,
             crate::curves::EasingFieldsPlugin,
             crate::axis::BlendAxisPlugin,
+            crate::clip_preview::ClipPreviewPlugin,
+            crate::skeleton_preview::SkeletonPreviewPlugin,
             WireLayoutPlugin,
             ZipTiesPlugin,
         ))
@@ -282,9 +287,18 @@ fn spawn_node(
             return;
         }
         let preview = preview.as_ref().map(|(a, b)| (a.as_str(), b.as_str()));
-        spawn_plain_node(&mut world.commands(), canvas, &node, preview);
+        let subtitle = subtitle(world, &node);
+        spawn_plain_node(&mut world.commands(), canvas, &node, preview, subtitle);
         world.flush();
     });
+}
+
+/// What a renamed node (a blend space called Locomotion) says it is under
+/// its title: its type's title, if the view knows its type.
+fn subtitle(world: &World, node: &FlowNode) -> Option<String> {
+    let types = world.get_resource::<ViewNodeTypes>()?;
+    let title = &types.0.get(&node.kind)?.title;
+    (*title != node.title).then(|| title.clone())
 }
 
 fn spawn_plain_node(
@@ -292,6 +306,7 @@ fn spawn_plain_node(
     canvas: Entity,
     node: &FlowNode,
     preview: Option<(&str, &str)>,
+    subtitle: Option<String>,
 ) {
     let row = |port: &PortDef, make: fn(PortType) -> Port| {
         kit::row(
@@ -321,10 +336,20 @@ fn spawn_plain_node(
         .map(|port| row(port, Port::output))
         .collect();
     let (title, header) = (node.title.clone(), header_color(node));
+    let subtitle: Vec<_> = subtitle
+        .into_iter()
+        .map(|subtitle| {
+            let text = format!("\n{subtitle}");
+            bsn! { TextSpan(text) TextFont { font_size: FontSize::Px(10.0) } TextColor(SUBTITLE) }
+        })
+        .collect();
     let drawn = commands
         .spawn_scene(bsn! {
             @kit::node(node.position) ChildOf(canvas)
-            Children [ @kit::title(title) BackgroundColor(header) -- {inputs} -- {outputs} ]
+            Children [
+                @kit::title(title) BackgroundColor(header) Children [ {subtitle} ]
+                -- {inputs} -- {outputs}
+            ]
         })
         .insert(ViewNode(node.id.clone()))
         .id();
@@ -812,6 +837,30 @@ mod tests {
 
     fn view(app: &App, canvas: Entity) -> FlowGraphView {
         app.world().get::<FlowGraphView>(canvas).unwrap().clone()
+    }
+
+    #[test]
+    fn a_renamed_node_says_its_type_under_its_title() {
+        let space = |title: &str| FlowNode {
+            id: title.to_lowercase(),
+            kind: crate::blend::BLEND_SPACE_2D.into(),
+            title: title.into(),
+            ..default()
+        };
+        let graph = FlowGraph {
+            nodes: vec![space("Locomotion"), space("Blend Space 2D")],
+            ..default()
+        };
+        let (mut app, _) = app_with(graph);
+        app.update();
+        let spans: Vec<String> = app
+            .world_mut()
+            .query::<&TextSpan>()
+            .iter(app.world())
+            .map(|span| span.0.clone())
+            .collect();
+        // Only the renamed one; its type's title on a line of its own.
+        assert_eq!(spans, ["\nBlend Space 2D"]);
     }
 
     #[test]

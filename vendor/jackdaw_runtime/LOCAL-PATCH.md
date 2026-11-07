@@ -29,3 +29,11 @@ General filesystem prefab resolution and terrain/navmesh sidecar loading are not
 ported by this patch; the current game does not author those resources. The Basis
 prototype's inline-material validation remains a separate test from the full game.
 
+
+PIE state streaming (`pie.rs::stream_state`) sends its deltas to the editor at
+10 Hz of real time instead of every frame; the initial snapshot still goes on the
+first frame. Each pass reflects every component of every `Transform` entity to
+JSON on the main thread: measured at ~34 ms per frame for the game's scene (314
+entities, mostly the character's bones), which held play-in-editor at 15 fps.
+The vendored `jackdaw_pie_protocol` brings a pass down to ~4 ms by reflecting
+only each entity's own components; pacing it still keeps that off most frames.

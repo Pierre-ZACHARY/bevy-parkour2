@@ -5,6 +5,12 @@
 //! sample would play, as the points light up. Dropping a library item on
 //! the axis adds a sample playing it. A double click zooms onto the axis.
 //!
+//! Under the axis, a selected node sets where each axis runs (its ends,
+//! framing the plot and holding the input, see
+//! [`space_range`](crate::blend::space_range)) and a grid samples snap to,
+//! its cells across the axis. An end left to the samples shows dimmed;
+//! emptying its field gives it back to them.
+//!
 //! While the game plays, the blend space's input is marked where it is,
 //! and the points light up by how much they play.
 //!
@@ -15,20 +21,25 @@
 //! [`BlendPreviewSlot`], hidden without one.
 
 use bevy::ecs::system::SystemParam;
+use bevy::input::keyboard::{Key, KeyboardInput};
 use bevy::input_focus::tab_navigation::TabIndex;
+use bevy::input_focus::{FocusedInput, InputFocus};
 use bevy::picking::cursor::EntityCursor;
 use bevy::picking::pointer::PointerButton;
 use bevy::prelude::*;
+use bevy::text::EditableText;
 use bevy::ui::Selected;
 use bevy::window::SystemCursorIcon;
 use bevy_noodle::prelude::*;
 use bevy_noodle::style::{WireMaterial, stroke_material};
 
-use crate::blend::{SELECT_2D, axis_range, sample_weights, triangulate};
-use crate::fields::{FIELD, FIELD_BORDER, format_number};
+use crate::blend::{SELECT_2D, sample_weights, space_range, triangulate};
+use crate::fields::{
+    FIELD, FIELD_BORDER, FOCUSED_BORDER, format_number, parse_number, spawn_field,
+};
 use crate::levels::focus_on;
 use crate::library::local_point;
-use crate::model::{BlendSample, FlowNode};
+use crate::model::{BlendAxes, BlendSample, FlowNode};
 use crate::run::FlowGraphPlayback;
 use crate::view::{ACTIVE, FlowGraphView, ViewNode, same_graph_path};
 
@@ -47,6 +58,9 @@ const MARK: f32 = 11.0;
 const LINE_WIDTH: f32 = 1.0;
 const DOT_COLOR: Color = Color::srgb_u8(214, 218, 224);
 const LINE: Color = Color::srgb_u8(90, 95, 108);
+const GRID: Color = Color::srgb_u8(50, 53, 61);
+/// The most cells a grid may cut an axis into.
+const MAX_DIVISIONS: u32 = 64;
 const TICK: Color = Color::srgb_u8(150, 154, 163);
 const PROBE: Color = Color::srgb(0.45, 0.7, 1.0);
 const LABEL: Color = Color::srgb_u8(20, 21, 25);
@@ -100,6 +114,27 @@ struct TickLabel {
     high: bool,
 }
 
+/// Under a plot, its axes' settings: shown while its node is selected.
+#[derive(Component)]
+struct AxisPanel {
+    plot: Entity,
+}
+
+/// A field of an [`AxisPanel`]: what it sets, of which axis of `plot`.
+#[derive(Component, Clone, Copy, Debug)]
+struct AxisField {
+    plot: Entity,
+    axis: usize,
+    part: AxisPart,
+}
+
+#[derive(Clone, Copy, Debug, PartialEq)]
+enum AxisPart {
+    Min,
+    Max,
+    Divisions,
+}
+
 /// Where the blend space's input is while it plays.
 #[derive(Component)]
 struct InputMark;
@@ -126,7 +161,11 @@ impl Plugin for BlendAxisPlugin {
             .add_observer(drag_probe)
             .add_observer(point_at_plot)
             .add_observer(leave_plot)
-            .add_systems(Update, sync_axes);
+            .add_observer(enter_commits_axis)
+            .add_systems(
+                Update,
+                (sync_axes, (commit_axis_fields, sync_axis_panels).chain()),
+            );
     }
 }
 
@@ -159,6 +198,7 @@ pub(crate) fn spawn_blend_axis(commands: &mut Commands, node: Entity, two_d: boo
             ChildOf(node),
         ))
         .id();
+    spawn_axis_panel(commands, node, plot, two_d);
     let slot = commands
         .spawn((
             BlendPreviewSlot,
@@ -259,10 +299,80 @@ pub(crate) fn spawn_blend_axis(commands: &mut Commands, node: Entity, two_d: boo
     ));
 }
 
-/// The values a plot of `samples` runs between: theirs, from 0.
-fn range_of(samples: &[BlendSample]) -> Rect {
-    let (x, y) = (axis_range(samples, 0), axis_range(samples, 1));
-    Rect::new(x.0, y.0, x.1, y.1)
+/// Under `plot`, in canvas node `node`: a row per axis, its ends and its
+/// grid's cells to set (`x 0 .. 6 grid 4`).
+fn spawn_axis_panel(commands: &mut Commands, node: Entity, plot: Entity, two_d: bool) {
+    let panel = commands
+        .spawn((
+            AxisPanel { plot },
+            Node {
+                flex_direction: FlexDirection::Column,
+                row_gap: px(3),
+                margin: UiRect::new(px(8), px(8), px(0), px(6)),
+                display: Display::None,
+                ..default()
+            },
+            ChildOf(node),
+        ))
+        .id();
+    for axis in 0..if two_d { 2 } else { 1 } {
+        let row = commands
+            .spawn((
+                Node {
+                    align_items: AlignItems::Center,
+                    column_gap: px(4),
+                    ..default()
+                },
+                ChildOf(panel),
+            ))
+            .id();
+        let label = |commands: &mut Commands, text: &str| {
+            commands.spawn((
+                Text::new(text),
+                TextFont::from_font_size(10.0),
+                TextColor(TICK),
+                Pickable::IGNORE,
+                ChildOf(row),
+            ));
+        };
+        let field = |commands: &mut Commands, part: AxisPart, width: f32| {
+            let field = spawn_field(commands, String::new(), width, row);
+            commands
+                .entity(field)
+                .insert(AxisField { plot, axis, part });
+        };
+        label(commands, ["x", "y"][axis]);
+        field(commands, AxisPart::Min, 34.0);
+        label(commands, "..");
+        field(commands, AxisPart::Max, 34.0);
+        label(commands, "grid");
+        field(commands, AxisPart::Divisions, 24.0);
+    }
+}
+
+/// What `field` shows of `node`'s axes, and whether it is set there rather
+/// than left to the samples.
+fn field_text(node: &FlowNode, field: &AxisField) -> (String, bool) {
+    let range = space_range(node);
+    let axes = node.axes.clone().unwrap_or_default();
+    let set = [&axes.x, &axes.y][field.axis];
+    match field.part {
+        AxisPart::Min => (format_number(range.min[field.axis]), set.min.is_some()),
+        AxisPart::Max => (format_number(range.max[field.axis]), set.max.is_some()),
+        AxisPart::Divisions => (set.divisions.to_string(), set.divisions > 0),
+    }
+}
+
+/// How many grid cells cut `node`'s axes: none in 1D's y.
+fn grid_of(node: &FlowNode) -> UVec2 {
+    let axes = node.axes.clone().unwrap_or_default();
+    let y = if is_2d(node) { axes.y.divisions } else { 0 };
+    UVec2::new(axes.x.divisions, y).min(UVec2::splat(MAX_DIVISIONS))
+}
+
+/// Whether a plot of `node` is 2D, and its grid.
+fn shape_of(node: Option<&FlowNode>) -> (bool, UVec2) {
+    node.map_or((false, UVec2::ZERO), |node| (is_2d(node), grid_of(node)))
 }
 
 /// Where value `at` is on a plot of `size`, in its pixels: 1D on the axis
@@ -295,8 +405,21 @@ fn snap(value: f32, span: f32) -> f32 {
     (value / step).round() * step
 }
 
-fn snap_point(at: Vec2, range: Rect) -> Vec2 {
-    Vec2::new(snap(at.x, range.width()), snap(at.y, range.height()))
+/// `at` snapped to `grid`'s lines across `range`, or else to round values
+/// (on an axis with no grid).
+fn snap_point(at: Vec2, range: Rect, grid: UVec2) -> Vec2 {
+    let mut snapped = at;
+    for axis in 0..2 {
+        let (low, span) = (range.min[axis], range.size()[axis]);
+        snapped[axis] = match grid[axis] {
+            0 => snap(at[axis], span),
+            cells => {
+                let step = span / cells as f32;
+                low + ((at[axis] - low) / step).round() * step
+            }
+        };
+    }
+    snapped
 }
 
 /// What a plot edits and reads: its canvas, and its node's id.
@@ -317,18 +440,29 @@ fn edit_samples(
     id: &str,
     edit: impl FnOnce(&mut Vec<BlendSample>),
 ) {
+    edit_node(views, canvas, id, |node| edit(&mut node.samples));
+}
+
+/// Edit node `id` in `canvas`'s view with `edit`, marking the graph edited
+/// if it changed.
+fn edit_node(
+    views: &mut Query<&mut FlowGraphView>,
+    canvas: Entity,
+    id: &str,
+    edit: impl FnOnce(&mut FlowNode),
+) {
     let Ok(mut view) = views.get_mut(canvas) else {
         return;
     };
     let Some(node) = view.graph.nodes.iter().find(|node| node.id == id) else {
         return;
     };
-    let mut samples = node.samples.clone();
-    edit(&mut samples);
-    if samples != node.samples {
+    let mut edited = node.clone();
+    edit(&mut edited);
+    if edited != *node {
         let node = view.graph.nodes.iter_mut().find(|node| node.id == id);
         if let Some(node) = node {
-            node.samples = samples;
+            *node = edited;
             view.dirty = true;
         }
     }
@@ -378,13 +512,12 @@ impl AxisDrops<'_, '_> {
         let Some((id, local, range)) = hit else {
             return false;
         };
-        let two_d = self
-            .views
-            .get(canvas)
-            .ok()
-            .and_then(|view| view.graph.node(&id).map(is_2d))
-            .unwrap_or(false);
-        let at = snap_point(from_plot(local, range, plot_size(two_d), two_d), range);
+        let (two_d, grid) = shape_of(self.views.get(canvas).ok().and_then(|v| v.graph.node(&id)));
+        let at = snap_point(
+            from_plot(local, range, plot_size(two_d), two_d),
+            range,
+            grid,
+        );
         edit_samples(&mut self.views, canvas, &id, |samples| {
             samples.push(BlendSample {
                 kind: template.kind.clone(),
@@ -414,14 +547,37 @@ fn set_display(node: &mut Node, shown: bool) {
     }
 }
 
-/// The lines a plot draws: the axis in 1D; the samples' triangles' edges
-/// in a 2D blend space; none for a select, which mixes nothing.
-fn plot_lines(node: &FlowNode, range: Rect, size: Vec2) -> Vec<[Vec2; 2]> {
-    if !is_2d(node) {
-        return vec![[Vec2::new(PAD, LINE_Y), Vec2::new(size.x - PAD, LINE_Y)]];
+/// The lines a plot draws, and their colours: its grid's first; then the
+/// axis in 1D, the samples' triangles' edges in a 2D blend space, none for
+/// a select, which mixes nothing.
+fn plot_lines(node: &FlowNode, range: Rect, size: Vec2) -> Vec<([Vec2; 2], Color)> {
+    let two_d = is_2d(node);
+    let grid = grid_of(node);
+    let mut lines = Vec::new();
+    for axis in 0..2 {
+        let cells = grid[axis];
+        for i in (0..=cells).filter(|_| cells > 0) {
+            let along = range.min[axis] + range.size()[axis] * i as f32 / cells as f32;
+            let line = if !two_d {
+                let x = on_plot(Vec2::new(along, 0.0), range, size, false).x;
+                [Vec2::new(x, LINE_Y - 4.0), Vec2::new(x, LINE_Y + 4.0)]
+            } else if axis == 0 {
+                [range.min.with_x(along), range.max.with_x(along)]
+                    .map(|at| on_plot(at, range, size, true))
+            } else {
+                [range.min.with_y(along), range.max.with_y(along)]
+                    .map(|at| on_plot(at, range, size, true))
+            };
+            lines.push((line, GRID));
+        }
+    }
+    if !two_d {
+        let axis = [Vec2::new(PAD, LINE_Y), Vec2::new(size.x - PAD, LINE_Y)];
+        lines.push((axis, LINE));
+        return lines;
     }
     if node.kind == SELECT_2D {
-        return Vec::new();
+        return lines;
     }
     let mut unique: Vec<Vec2> = Vec::new();
     for sample in &node.samples {
@@ -438,10 +594,12 @@ fn plot_lines(node: &FlowNode, range: Rect, size: Vec2) -> Vec<[Vec2; 2]> {
             }
         }
     }
-    edges
-        .iter()
-        .map(|edge| edge.map(|i| on_plot(unique[i], range, size, true)))
-        .collect()
+    lines.extend(
+        edges
+            .iter()
+            .map(|edge| (edge.map(|i| on_plot(unique[i], range, size, true)), LINE)),
+    );
+    lines
 }
 
 /// How the probe at `at` mixes `node`'s samples, for the label:
@@ -512,7 +670,7 @@ fn sync_axes(
         };
         let two_d = is_2d(node);
         let size = plot_size(two_d);
-        let range = axis.frozen.unwrap_or_else(|| range_of(&node.samples));
+        let range = axis.frozen.unwrap_or_else(|| space_range(node));
         if axis.range != Some(range) {
             axis.range = Some(range);
         }
@@ -583,12 +741,12 @@ fn sync_axes(
                 }
             }
             if let Some((AxisStroke(i), material)) = stroke {
-                let Some(&[from, to]) = lines.get(*i) else {
+                let Some(&(line, color)) = lines.get(*i) else {
                     commands.entity(child).despawn();
                     continue;
                 };
                 strokes[*i] = true;
-                draw_line(&mut part, &material.0, &mut materials, from, to);
+                draw_line(&mut part, &material.0, &mut materials, line, color);
             }
             if let Some(tick) = tick {
                 let end = if tick.high { range.max } else { range.min };
@@ -687,16 +845,16 @@ fn preview_of(axis: &BlendAxis, node: &FlowNode, selected: bool) -> Option<Blend
     })
 }
 
-/// Draw a line from `from` to `to` (the plot's pixels) with `node` and
-/// `material`.
+/// Draw a line from `from` to `to` (the plot's pixels) in `color` with
+/// `node` and `material`.
 fn draw_line(
     node: &mut Node,
     material: &Handle<WireMaterial>,
     materials: &mut Assets<WireMaterial>,
-    from: Vec2,
-    to: Vec2,
+    [from, to]: [Vec2; 2],
+    color: Color,
 ) {
-    let (rect, drawn) = stroke_material([from, from, to, to], LINE, LINE_WIDTH);
+    let (rect, drawn) = stroke_material([from, from, to, to], color, LINE_WIDTH);
     let (left, top) = (px(rect.min.x), px(rect.min.y));
     let (width, height) = (px(rect.width()), px(rect.height()));
     if (node.left, node.top, node.width, node.height) != (left, top, width, height) {
@@ -797,16 +955,12 @@ fn drag_dot(
     let Some(range) = axis.frozen.or(axis.range) else {
         return;
     };
-    let two_d = views
-        .get(canvas)
-        .ok()
-        .and_then(|view| view.graph.node(&id).map(is_2d))
-        .unwrap_or(false);
+    let (two_d, grid) = shape_of(views.get(canvas).ok().and_then(|v| v.graph.node(&id)));
     let position = drag.pointer.position;
     let Some((at, _)) = value_under(plot, position, range, two_d, &layouts, ui_scale.0) else {
         return;
     };
-    let at = snap_point(at, range);
+    let at = snap_point(at, range, grid);
     edit_samples(&mut views, canvas, &id, |samples| {
         if let Some(sample) = samples.get_mut(i) {
             sample.at = at;
@@ -874,11 +1028,7 @@ fn click_plot(
     match (click.button, click.count) {
         (PointerButton::Primary, 2) => focus_on(&mut commands, canvas, plot),
         (PointerButton::Primary, _) => {
-            let two_d = views
-                .get(canvas)
-                .ok()
-                .and_then(|view| view.graph.node(&id).map(is_2d))
-                .unwrap_or(false);
+            let (two_d, grid) = shape_of(views.get(canvas).ok().and_then(|v| v.graph.node(&id)));
             let Some(range) = axis.range else {
                 return;
             };
@@ -886,7 +1036,7 @@ fn click_plot(
             if let Some((at, true)) =
                 value_under(plot, position, range, two_d, &layouts, ui_scale.0)
             {
-                axis.probe = Some(snap_point(at, range));
+                axis.probe = Some(snap_point(at, range, grid));
                 axis.selected = None;
             }
         }
@@ -958,28 +1108,151 @@ fn drag_probe(
     else {
         return;
     };
-    let two_d = views
-        .get(canvas)
-        .ok()
-        .and_then(|view| view.graph.node(&id).map(is_2d))
-        .unwrap_or(false);
+    let (two_d, grid) = shape_of(views.get(canvas).ok().and_then(|v| v.graph.node(&id)));
     let position = drag.pointer.position;
     if let Some((at, _)) = value_under(plot, position, range, two_d, &layouts, ui_scale.0) {
-        axis.probe = Some(snap_point(at.clamp(range.min, range.max), range));
+        axis.probe = Some(snap_point(at.clamp(range.min, range.max), range, grid));
         axis.selected = None;
+    }
+}
+
+/// Enter in an axis field commits it: the field lets go of the keyboard.
+fn enter_commits_axis(
+    input: On<FocusedInput<KeyboardInput>>,
+    fields: Query<(), With<AxisField>>,
+    mut focus: ResMut<InputFocus>,
+) {
+    if fields.contains(input.focused_entity)
+        && input.input.state.is_pressed()
+        && matches!(input.input.logical_key, Key::Enter)
+    {
+        focus.clear();
+    }
+}
+
+/// An axis field that lost the keyboard sets what it shows, if it was
+/// changed: a number, or nothing to give an end back to the samples (no
+/// grid, for a grid's).
+fn commit_axis_fields(
+    focus: Res<InputFocus>,
+    mut last: Local<Option<Entity>>,
+    fields: Query<(&AxisField, &EditableText)>,
+    graph: GraphQuery,
+    view_nodes: Query<&ViewNode>,
+    mut views: Query<&mut FlowGraphView>,
+) {
+    let focused = focus.get();
+    if *last == focused {
+        return;
+    }
+    let left = std::mem::replace(&mut *last, focused);
+    let Some((field, text)) = left.and_then(|left| fields.get(left).ok()) else {
+        return;
+    };
+    let Some((canvas, id)) = plot_target(field.plot, &graph, &view_nodes) else {
+        return;
+    };
+    let text = text.value().to_string();
+    let text = text.trim();
+    let unchanged = views
+        .get(canvas)
+        .ok()
+        .and_then(|view| view.graph.node(&id))
+        .is_none_or(|node| field_text(node, field).0 == text);
+    if unchanged {
+        return;
+    }
+    // Not a number: `sync_axis_panels` puts the value back.
+    let value = match text {
+        "" => None,
+        text => match parse_number(text) {
+            Some(x) => Some(x),
+            None => return,
+        },
+    };
+    edit_node(&mut views, canvas, &id, |node| {
+        let mut axes = node.axes.clone().unwrap_or_default();
+        let set = if field.axis == 0 {
+            &mut axes.x
+        } else {
+            &mut axes.y
+        };
+        match field.part {
+            AxisPart::Min => set.min = value,
+            AxisPart::Max => set.max = value,
+            AxisPart::Divisions => {
+                let cells = value.map_or(0.0, |x| x.round().clamp(0.0, MAX_DIVISIONS as f32));
+                set.divisions = cells as u32;
+            }
+        }
+        node.axes = (axes != BlendAxes::default()).then_some(axes);
+    });
+}
+
+/// What an axis field is drawn with.
+type FieldParts<'a> = (
+    Entity,
+    &'a AxisField,
+    &'a mut EditableText,
+    &'a mut TextColor,
+    &'a mut BorderColor,
+);
+
+/// Axis panels show while their node is selected (or one of their fields
+/// has the keyboard), their fields what they set: dimmed when left to the
+/// samples, outlined with the keyboard.
+fn sync_axis_panels(
+    mut panels: Query<(&AxisPanel, &mut Node)>,
+    mut fields: Query<FieldParts>,
+    selected: Query<(), With<Selected>>,
+    graph: GraphQuery,
+    view_nodes: Query<&ViewNode>,
+    views: Query<&FlowGraphView>,
+    focus: Res<InputFocus>,
+) {
+    let typing_in = focus
+        .get()
+        .and_then(|focused| fields.get(focused).ok())
+        .map(|(_, field, ..)| field.plot);
+    for (panel, mut node) in &mut panels {
+        let shown = typing_in == Some(panel.plot)
+            || graph
+                .node_of(panel.plot)
+                .is_some_and(|node| selected.contains(node));
+        set_display(&mut node, shown);
+    }
+    for (entity, field, mut text, mut color, mut border) in &mut fields {
+        let Some((canvas, id)) = plot_target(field.plot, &graph, &view_nodes) else {
+            continue;
+        };
+        let Some(node) = views.get(canvas).ok().and_then(|view| view.graph.node(&id)) else {
+            continue;
+        };
+        let focused = focus.get() == Some(entity);
+        let (shown, set) = field_text(node, field);
+        if !focused && text.value().to_string() != shown {
+            text.editor_mut().set_text(&shown);
+        }
+        color.set_if_neq(TextColor(if set { DOT_COLOR } else { TICK }));
+        let edge = if focused {
+            FOCUSED_BORDER
+        } else {
+            FIELD_BORDER
+        };
+        border.set_if_neq(BorderColor::all(edge));
     }
 }
 
 #[cfg(test)]
 mod tests {
     use bevy::ecs::system::RunSystemOnce;
-    use bevy::input_focus::InputFocus;
+    use bevy::input_focus::FocusCause;
     use bevy::scene::ScenePlugin;
 
     use super::*;
     use crate::blend::{BLEND_SPACE_1D, BLEND_SPACE_2D};
     use crate::fields::ValueFieldsPlugin;
-    use crate::model::{FlowGraph, FlowValue, PortDef, PortKind};
+    use crate::model::{AxisSettings, FlowGraph, FlowValue, PortDef, PortKind};
     use crate::run::FlowNodeState;
     use crate::view::spawn_flow_graph_view;
 
@@ -1094,6 +1367,108 @@ mod tests {
         );
         assert!((snap(1.43, 6.0) - 1.45).abs() < 1e-5);
         assert!((snap(42.0, 100.0) - 40.0).abs() < 1e-5);
+        // On a grid of 4 cells across x, 0 to 6: to 1.5s; y to round values.
+        let snapped = snap_point(Vec2::new(2.1, 0.43), range, UVec2::new(4, 0));
+        assert!(snapped.distance(Vec2::new(1.5, 0.45)) < 1e-5, "{snapped}");
+    }
+
+    /// The field setting `part` of axis `axis`.
+    fn field(app: &mut App, axis: usize, part: AxisPart) -> Entity {
+        app.world_mut()
+            .query::<(Entity, &AxisField)>()
+            .iter(app.world())
+            .find(|(_, field)| field.axis == axis && field.part == part)
+            .map(|(entity, _)| entity)
+            .unwrap()
+    }
+
+    /// Type `text` in `field` and leave it.
+    fn type_in(app: &mut App, field: Entity, text: &str) {
+        app.world_mut()
+            .resource_mut::<InputFocus>()
+            .set(field, FocusCause::Navigated);
+        app.update();
+        let mut editable = app.world_mut().get_mut::<EditableText>(field).unwrap();
+        editable.editor_mut().set_text(text);
+        app.world_mut().resource_mut::<InputFocus>().clear();
+        app.update();
+        app.update();
+    }
+
+    fn text_of(app: &mut App, field: Entity) -> String {
+        let text = app.world().get::<EditableText>(field).unwrap();
+        text.value().to_string()
+    }
+
+    fn space_node(app: &mut App) -> FlowNode {
+        let mut views = app.world_mut().query::<&FlowGraphView>();
+        views.single(app.world()).unwrap().graph.nodes[0].clone()
+    }
+
+    #[test]
+    fn a_selected_node_sets_its_axes_ends_and_grid() {
+        let mut app = app(graph(BLEND_SPACE_1D, walk_jog_sprint()));
+        let panel = || {
+            move |app: &mut App| {
+                app.world_mut()
+                    .query_filtered::<&Node, With<AxisPanel>>()
+                    .single(app.world())
+                    .unwrap()
+                    .display
+            }
+        };
+        assert_eq!(panel()(&mut app), Display::None);
+        select(&mut app, true);
+        app.update();
+        assert_eq!(panel()(&mut app), Display::Flex);
+        // 1D: x alone, its ends the samples', no grid.
+        assert_eq!(
+            app.world_mut()
+                .query::<&AxisField>()
+                .iter(app.world())
+                .count(),
+            3
+        );
+        let (min, max, grid) = (
+            field(&mut app, 0, AxisPart::Min),
+            field(&mut app, 0, AxisPart::Max),
+            field(&mut app, 0, AxisPart::Divisions),
+        );
+        assert_eq!(
+            [min, max, grid].map(|field| text_of(&mut app, field)),
+            ["0", "6", "0"]
+        );
+        // Leaving a field untouched sets nothing.
+        type_in(&mut app, max, "6");
+        assert_eq!(space_node(&mut app).axes, None);
+        type_in(&mut app, max, "8");
+        type_in(&mut app, grid, "4");
+        let set = AxisSettings {
+            max: Some(8.0),
+            divisions: 4,
+            ..default()
+        };
+        assert_eq!(space_node(&mut app).axes.map(|axes| axes.x), Some(set));
+        // The plot runs to 8: Sprint's point three quarters along.
+        let inner = SIZE_1D.x - 2.0 * PAD;
+        let sprint = dots(&mut app)[2].1;
+        assert!((sprint.x - (PAD + 0.75 * inner)).abs() < 1e-3, "{sprint}");
+        // The grid's five ticks and the axis.
+        let lines = app
+            .world_mut()
+            .query::<&AxisStroke>()
+            .iter(app.world())
+            .count();
+        assert_eq!(lines, 6);
+        // Emptied, the end goes back to the samples'; no grid, no axes.
+        type_in(&mut app, max, "");
+        type_in(&mut app, grid, "0");
+        assert_eq!(space_node(&mut app).axes, None);
+        assert_eq!(text_of(&mut app, max), "6");
+        // Not a number: as it was.
+        type_in(&mut app, min, "fast");
+        assert_eq!(space_node(&mut app).axes, None);
+        assert_eq!(text_of(&mut app, min), "0");
     }
 
     #[test]

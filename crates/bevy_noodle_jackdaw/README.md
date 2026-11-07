@@ -13,7 +13,8 @@ game for an entity every fixed step (or every frame), and drawn with bevy_noodle
   - `leafwing`: one source node per leafwing-input-manager action
     (`LeafwingFlowNodesPlugin::<Action>`);
   - `tnua`: Tnua Walk (sink: motion, and `facing`, zero to face the
-    motion) and Tnua State (source) nodes
+    motion), Tnua State and Tnua Local Velocity (sources: the velocity
+    as the character faces, `x` to its right, `y` ahead) nodes
     (`TnuaFlowNodesPlugin::<Scheme>`).
 
 Tests: `cargo test --all-features` here (the crate is its own workspace).
@@ -30,6 +31,10 @@ The crate registers its built-in types with `FlowGraphPlugin`:
 - `core/make_vector2` and `core/camera_relative`;
 - `core/double_tap`: `held` while its button is down, `double` while it is
   held after a second press within `window` seconds;
+- `core/smooth_polar`: its `vector` followed a little behind (most of the
+  way in `time` seconds, 0.15 by default), its direction turning the short
+  way round and its length easing apart, each on a critically damped
+  spring: a half turn goes round by a side, not through zero;
 - math for `float`, `vec2` and `vec3`: add, subtract, multiply, divide,
   min, max, abs, negate, lerp, select, scale, length, dot, normalize,
   split/make, cross, clamp, greater, less;
@@ -161,7 +166,15 @@ gets that curve marked on the canvas while it plays.
 title, and where it sits). `sample_weights` mixes them by the input: in 1D,
 the two samples around `x` linearly, the end one alone beyond; in 2D, the
 corners of the Delaunay triangle around `(x, y)` by their barycentric
-weights, the nearest hull edge outside. Samples play in phase: a clip
+weights, the nearest hull edge outside; when its samples nearest the origin
+ring it (walks every way), an input inside the ring mixes where it would be
+on it, and `playrate` slows its clips in proportion (`ring_input`), as 1D
+does below its first sample. Its axes run from 0 or below to the
+samples' furthest unless `FlowNode::axes` sets an end (`BlendAxes`,
+`AxisSettings`): then `space_range` frames the plot there and
+`clamp_input` holds the input within it before it mixes, `playrate`
+included. An axis may also hold a grid, `divisions` cells across it, for
+the editor to snap samples to. Samples play in phase: a clip
 holds `SyncCycles` (how many, where the first starts), what the clip says
 of itself rather than the blend, and `synced_duration` gives how long the
 blend's cycle lasts. These nodes only describe the blend: a player
@@ -226,16 +239,28 @@ player to match the clip with.
   only while their node is selected: else it shows its ports alone.
 - A blend space shows its samples as points on its axis (1D) or plane
   (2D, with the triangles that mix them; a select's, without). Hover a point for its sample's
-  name and value; drag it to move the sample (snapped to round values);
+  name and value; drag it to move the sample (snapped to its grid, or to
+  round values);
   right-click it to remove it. Click away from the points to probe the
   blend: the points light up by how much each would play, and a label
   gives the mix (drag to move the probe, right-click to take it away).
   Drop a library item on the axis to add a sample playing it. While the
-  game plays, the input is marked on the axis. A selected blend space
-  holding a probe or a selected point opens a slot under its axis
+  game plays, the input is marked on the axis. Under a selected blend
+  space's axis, a row per axis sets its ends (dimmed while left to the
+  samples; empty a field to give it back) and its grid's cells. A
+  renamed node (a blend space called Locomotion) shows its type's title
+  under its own. A selected blend space holding a probe or a selected point opens a slot under its axis
   (`BlendPreviewSlot`, carrying a `BlendPreview` of the point hovered,
   else probed); an app draws the blend there, from the catalog's
-  `BlendPreviewAssets` (see the game's `pose_preview` crate).
+  `BlendPreviewAssets` (see the game's `pose_preview` crate). A selected
+  node playing one of those clips (Idle, a stop) opens such a slot under
+  its ports, previewing its clip alone: a blend space of that one sample.
+  A selected Skeleton or Bone node opens one too, carrying a
+  `SkeletonPreview`: the character at rest, its skeleton drawn over it,
+  the Bone node's bone lit (or, for a Skeleton node, the bones of the
+  Bone nodes it feeds). Views run nodes for no entity, so a Bone node
+  there picks its name from the preview character's bones
+  (`PreviewBones`, filled by the app drawing previews).
 - Transitions are arrows (see [Arrows](#arrows)): wire a state's `State`
   output into another's `State` input and one goes in between, its pill
   of ports halfway. Cutting either half of an arrow (dragging it off the

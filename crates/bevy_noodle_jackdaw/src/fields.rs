@@ -599,7 +599,12 @@ fn highlight_choices(
 }
 
 /// A text input showing `text`, `width` wide, in `fields`.
-fn spawn_field(commands: &mut Commands, text: String, width: f32, fields: Entity) -> Entity {
+pub(crate) fn spawn_field(
+    commands: &mut Commands,
+    text: String,
+    width: f32,
+    fields: Entity,
+) -> Entity {
     commands
         .spawn((
             TextInput,

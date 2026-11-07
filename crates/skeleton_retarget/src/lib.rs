@@ -77,11 +77,17 @@ impl Rig {
 /// animation and before transforms propagate.
 pub struct SkeletonRetargetPlugin;
 
+/// Where [`SkeletonRetargetPlugin`] poses characters, in `PostUpdate`: what
+/// changes their pose further goes after.
+#[derive(SystemSet, Debug, Clone, PartialEq, Eq, Hash)]
+pub struct RetargetSystems;
+
 impl Plugin for SkeletonRetargetPlugin {
     fn build(&self, app: &mut App) {
         app.register_type::<Rig>().add_systems(
             PostUpdate,
             retarget
+                .in_set(RetargetSystems)
                 .after(bevy::app::AnimationSystems)
                 .before(TransformSystems::Propagate),
         );

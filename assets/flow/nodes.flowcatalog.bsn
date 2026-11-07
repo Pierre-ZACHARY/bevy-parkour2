@@ -2,6 +2,57 @@ bevy_noodle_jackdaw::model::FlowNodeCatalog {
     nodes: [
         bevy_noodle_jackdaw::model::FlowNode {
             id: "",
+            kind: "anim/aim_twist",
+            title: "Aim Twist",
+            position: glam::Vec2 {
+                x: 0.0,
+                y: 0.0,
+            },
+            inputs: [
+                bevy_noodle_jackdaw::model::PortDef {
+                    name: "bone",
+                    kind: bevy_noodle_jackdaw::model::PortKind::Entity,
+                    value: core::option::Option::None,
+                },
+                bevy_noodle_jackdaw::model::PortDef {
+                    name: "to",
+                    kind: bevy_noodle_jackdaw::model::PortKind::Entity,
+                    value: core::option::Option::None,
+                },
+                bevy_noodle_jackdaw::model::PortDef {
+                    name: "direction",
+                    kind: bevy_noodle_jackdaw::model::PortKind::Vec3,
+                    value: core::option::Option::None,
+                },
+                bevy_noodle_jackdaw::model::PortDef {
+                    name: "max",
+                    kind: bevy_noodle_jackdaw::model::PortKind::Float,
+                    value: core::option::Option::Some(bevy_noodle_jackdaw::model::FlowValue::Float(60.0)),
+                },
+                bevy_noodle_jackdaw::model::PortDef {
+                    name: "weight",
+                    kind: bevy_noodle_jackdaw::model::PortKind::Float,
+                    value: core::option::Option::Some(bevy_noodle_jackdaw::model::FlowValue::Float(1.0)),
+                },
+                bevy_noodle_jackdaw::model::PortDef {
+                    name: "time",
+                    kind: bevy_noodle_jackdaw::model::PortKind::Float,
+                    value: core::option::Option::Some(bevy_noodle_jackdaw::model::FlowValue::Float(0.15000000596046448)),
+                },
+            ],
+            outputs: [
+                bevy_noodle_jackdaw::model::PortDef {
+                    name: "twist",
+                    kind: bevy_noodle_jackdaw::model::PortKind::Float,
+                    value: core::option::Option::None,
+                },
+            ],
+            graph: core::option::Option::None,
+            samples: [],
+            axes: core::option::Option::None,
+        },
+        bevy_noodle_jackdaw::model::FlowNode {
+            id: "",
             kind: "anim/entry",
             title: "Entry",
             position: glam::Vec2 {
@@ -18,6 +69,78 @@ bevy_noodle_jackdaw::model::FlowNodeCatalog {
             ],
             graph: core::option::Option::None,
             samples: [],
+            axes: core::option::Option::None,
+        },
+        bevy_noodle_jackdaw::model::FlowNode {
+            id: "",
+            kind: "anim/facing",
+            title: "Facing",
+            position: glam::Vec2 {
+                x: 0.0,
+                y: 0.0,
+            },
+            inputs: [
+                bevy_noodle_jackdaw::model::PortDef {
+                    name: "follow",
+                    kind: bevy_noodle_jackdaw::model::PortKind::Bool,
+                    value: core::option::Option::None,
+                },
+                bevy_noodle_jackdaw::model::PortDef {
+                    name: "time",
+                    kind: bevy_noodle_jackdaw::model::PortKind::Float,
+                    value: core::option::Option::Some(bevy_noodle_jackdaw::model::FlowValue::Float(0.30000001192092896)),
+                },
+                bevy_noodle_jackdaw::model::PortDef {
+                    name: "max",
+                    kind: bevy_noodle_jackdaw::model::PortKind::Float,
+                    value: core::option::Option::Some(bevy_noodle_jackdaw::model::FlowValue::Float(120.0)),
+                },
+                bevy_noodle_jackdaw::model::PortDef {
+                    name: "turn",
+                    kind: bevy_noodle_jackdaw::model::PortKind::Float,
+                    value: core::option::Option::None,
+                },
+                bevy_noodle_jackdaw::model::PortDef {
+                    name: "turned",
+                    kind: bevy_noodle_jackdaw::model::PortKind::Float,
+                    value: core::option::Option::None,
+                },
+            ],
+            outputs: [
+                bevy_noodle_jackdaw::model::PortDef {
+                    name: "offset",
+                    kind: bevy_noodle_jackdaw::model::PortKind::Float,
+                    value: core::option::Option::None,
+                },
+            ],
+            graph: core::option::Option::None,
+            samples: [],
+            axes: core::option::Option::None,
+        },
+        bevy_noodle_jackdaw::model::FlowNode {
+            id: "",
+            kind: "anim/root_motion",
+            title: "Root Motion",
+            position: glam::Vec2 {
+                x: 0.0,
+                y: 0.0,
+            },
+            inputs: [],
+            outputs: [
+                bevy_noodle_jackdaw::model::PortDef {
+                    name: "turn",
+                    kind: bevy_noodle_jackdaw::model::PortKind::Float,
+                    value: core::option::Option::None,
+                },
+                bevy_noodle_jackdaw::model::PortDef {
+                    name: "turned",
+                    kind: bevy_noodle_jackdaw::model::PortKind::Float,
+                    value: core::option::Option::None,
+                },
+            ],
+            graph: core::option::Option::None,
+            samples: [],
+            axes: core::option::Option::None,
         },
         bevy_noodle_jackdaw::model::FlowNode {
             id: "",
@@ -41,8 +164,9 @@ bevy_noodle_jackdaw::model::FlowNodeCatalog {
                     value: core::option::Option::None,
                 },
             ],
-            graph: core::option::Option::Some(bevy_noodle_jackdaw::model::FlowGraph { nodes: [bevy_noodle_jackdaw::model::FlowNode { id: "entry", kind: "anim/entry", title: "Entry", position: glam::Vec2 { x: 40.0, y: 40.0 }, inputs: [], outputs: [bevy_noodle_jackdaw::model::PortDef { name: "start", kind: bevy_noodle_jackdaw::model::PortKind::State, value: core::option::Option::None }], graph: core::option::Option::None, samples: [] }], links: [], ties: [], variables: [] }),
+            graph: core::option::Option::Some(bevy_noodle_jackdaw::model::FlowGraph { nodes: [bevy_noodle_jackdaw::model::FlowNode { id: "entry", kind: "anim/entry", title: "Entry", position: glam::Vec2 { x: 40.0, y: 40.0 }, inputs: [], outputs: [bevy_noodle_jackdaw::model::PortDef { name: "start", kind: bevy_noodle_jackdaw::model::PortKind::State, value: core::option::Option::None }], graph: core::option::Option::None, samples: [], axes: core::option::Option::None }], links: [], ties: [], variables: [] }),
             samples: [],
+            axes: core::option::Option::None,
         },
         bevy_noodle_jackdaw::model::FlowNode {
             id: "",
@@ -83,6 +207,7 @@ bevy_noodle_jackdaw::model::FlowNodeCatalog {
             ],
             graph: core::option::Option::None,
             samples: [],
+            axes: core::option::Option::None,
         },
         bevy_noodle_jackdaw::model::FlowNode {
             id: "",
@@ -113,6 +238,7 @@ bevy_noodle_jackdaw::model::FlowNodeCatalog {
             ],
             graph: core::option::Option::None,
             samples: [],
+            axes: core::option::Option::None,
         },
         bevy_noodle_jackdaw::model::FlowNode {
             id: "",
@@ -187,6 +313,7 @@ bevy_noodle_jackdaw::model::FlowNodeCatalog {
             outputs: [],
             graph: core::option::Option::None,
             samples: [],
+            axes: core::option::Option::None,
         },
         bevy_noodle_jackdaw::model::FlowNode {
             id: "",
@@ -206,6 +333,7 @@ bevy_noodle_jackdaw::model::FlowNodeCatalog {
             outputs: [],
             graph: core::option::Option::None,
             samples: [],
+            axes: core::option::Option::None,
         },
         bevy_noodle_jackdaw::model::FlowNode {
             id: "",
@@ -281,10 +409,16 @@ bevy_noodle_jackdaw::model::FlowNodeCatalog {
                     kind: bevy_noodle_jackdaw::model::PortKind::Float,
                     value: core::option::Option::Some(bevy_noodle_jackdaw::model::FlowValue::Float(0.30000001192092896)),
                 },
+                bevy_noodle_jackdaw::model::PortDef {
+                    name: "face_on_release",
+                    kind: bevy_noodle_jackdaw::model::PortKind::Bool,
+                    value: core::option::Option::Some(bevy_noodle_jackdaw::model::FlowValue::Bool(true)),
+                },
             ],
             outputs: [],
             graph: core::option::Option::None,
             samples: [],
+            axes: core::option::Option::None,
         },
         bevy_noodle_jackdaw::model::FlowNode {
             id: "",
@@ -405,6 +539,7 @@ bevy_noodle_jackdaw::model::FlowNodeCatalog {
             ],
             graph: core::option::Option::None,
             samples: [],
+            axes: core::option::Option::None,
         },
         bevy_noodle_jackdaw::model::FlowNode {
             id: "",
@@ -424,6 +559,7 @@ bevy_noodle_jackdaw::model::FlowNodeCatalog {
             outputs: [],
             graph: core::option::Option::None,
             samples: [],
+            axes: core::option::Option::None,
         },
         bevy_noodle_jackdaw::model::FlowNode {
             id: "",
@@ -443,6 +579,7 @@ bevy_noodle_jackdaw::model::FlowNodeCatalog {
             ],
             graph: core::option::Option::None,
             samples: [],
+            axes: core::option::Option::None,
         },
         bevy_noodle_jackdaw::model::FlowNode {
             id: "",
@@ -483,6 +620,7 @@ bevy_noodle_jackdaw::model::FlowNodeCatalog {
             ],
             graph: core::option::Option::None,
             samples: [],
+            axes: core::option::Option::None,
         },
         bevy_noodle_jackdaw::model::FlowNode {
             id: "",
@@ -523,6 +661,7 @@ bevy_noodle_jackdaw::model::FlowNodeCatalog {
             ],
             graph: core::option::Option::None,
             samples: [],
+            axes: core::option::Option::None,
         },
         bevy_noodle_jackdaw::model::FlowNode {
             id: "",
@@ -563,6 +702,7 @@ bevy_noodle_jackdaw::model::FlowNodeCatalog {
             ],
             graph: core::option::Option::None,
             samples: [],
+            axes: core::option::Option::None,
         },
         bevy_noodle_jackdaw::model::FlowNode {
             id: "",
@@ -603,6 +743,7 @@ bevy_noodle_jackdaw::model::FlowNodeCatalog {
             ],
             graph: core::option::Option::None,
             samples: [],
+            axes: core::option::Option::None,
         },
         bevy_noodle_jackdaw::model::FlowNode {
             id: "",
@@ -643,6 +784,7 @@ bevy_noodle_jackdaw::model::FlowNodeCatalog {
             ],
             graph: core::option::Option::None,
             samples: [],
+            axes: core::option::Option::None,
         },
         bevy_noodle_jackdaw::model::FlowNode {
             id: "",
@@ -683,6 +825,7 @@ bevy_noodle_jackdaw::model::FlowNodeCatalog {
             ],
             graph: core::option::Option::None,
             samples: [],
+            axes: core::option::Option::None,
         },
         bevy_noodle_jackdaw::model::FlowNode {
             id: "",
@@ -723,6 +866,7 @@ bevy_noodle_jackdaw::model::FlowNodeCatalog {
             ],
             graph: core::option::Option::None,
             samples: [],
+            axes: core::option::Option::None,
         },
         bevy_noodle_jackdaw::model::FlowNode {
             id: "",
@@ -763,6 +907,7 @@ bevy_noodle_jackdaw::model::FlowNodeCatalog {
             ],
             graph: core::option::Option::None,
             samples: [],
+            axes: core::option::Option::None,
         },
         bevy_noodle_jackdaw::model::FlowNode {
             id: "",
@@ -803,6 +948,7 @@ bevy_noodle_jackdaw::model::FlowNodeCatalog {
             ],
             graph: core::option::Option::None,
             samples: [],
+            axes: core::option::Option::None,
         },
         bevy_noodle_jackdaw::model::FlowNode {
             id: "",
@@ -843,6 +989,7 @@ bevy_noodle_jackdaw::model::FlowNodeCatalog {
             ],
             graph: core::option::Option::None,
             samples: [],
+            axes: core::option::Option::None,
         },
         bevy_noodle_jackdaw::model::FlowNode {
             id: "",
@@ -883,6 +1030,7 @@ bevy_noodle_jackdaw::model::FlowNodeCatalog {
             ],
             graph: core::option::Option::None,
             samples: [],
+            axes: core::option::Option::None,
         },
         bevy_noodle_jackdaw::model::FlowNode {
             id: "",
@@ -923,6 +1071,7 @@ bevy_noodle_jackdaw::model::FlowNodeCatalog {
             ],
             graph: core::option::Option::None,
             samples: [],
+            axes: core::option::Option::None,
         },
         bevy_noodle_jackdaw::model::FlowNode {
             id: "",
@@ -963,6 +1112,313 @@ bevy_noodle_jackdaw::model::FlowNodeCatalog {
             ],
             graph: core::option::Option::None,
             samples: [],
+            axes: core::option::Option::None,
+        },
+        bevy_noodle_jackdaw::model::FlowNode {
+            id: "",
+            kind: "crouching_jog/rm.crouching.jog.l.pivot.180",
+            title: "Jog L Pivot 180",
+            position: glam::Vec2 {
+                x: 0.0,
+                y: 0.0,
+            },
+            inputs: [
+                bevy_noodle_jackdaw::model::PortDef {
+                    name: "enter",
+                    kind: bevy_noodle_jackdaw::model::PortKind::State,
+                    value: core::option::Option::None,
+                },
+                bevy_noodle_jackdaw::model::PortDef {
+                    name: "speed",
+                    kind: bevy_noodle_jackdaw::model::PortKind::Float,
+                    value: core::option::Option::Some(bevy_noodle_jackdaw::model::FlowValue::Float(1.0)),
+                },
+            ],
+            outputs: [
+                bevy_noodle_jackdaw::model::PortDef {
+                    name: "exit",
+                    kind: bevy_noodle_jackdaw::model::PortKind::State,
+                    value: core::option::Option::None,
+                },
+                bevy_noodle_jackdaw::model::PortDef {
+                    name: "time",
+                    kind: bevy_noodle_jackdaw::model::PortKind::Float,
+                    value: core::option::Option::None,
+                },
+                bevy_noodle_jackdaw::model::PortDef {
+                    name: "finished",
+                    kind: bevy_noodle_jackdaw::model::PortKind::Bool,
+                    value: core::option::Option::None,
+                },
+                bevy_noodle_jackdaw::model::PortDef {
+                    name: "turn",
+                    kind: bevy_noodle_jackdaw::model::PortKind::Float,
+                    value: core::option::Option::None,
+                },
+                bevy_noodle_jackdaw::model::PortDef {
+                    name: "turned",
+                    kind: bevy_noodle_jackdaw::model::PortKind::Float,
+                    value: core::option::Option::None,
+                },
+            ],
+            graph: core::option::Option::None,
+            samples: [],
+            axes: core::option::Option::None,
+        },
+        bevy_noodle_jackdaw::model::FlowNode {
+            id: "",
+            kind: "crouching_jog/rm.crouching.jog.l.pivot.90",
+            title: "Jog L Pivot 90",
+            position: glam::Vec2 {
+                x: 0.0,
+                y: 0.0,
+            },
+            inputs: [
+                bevy_noodle_jackdaw::model::PortDef {
+                    name: "enter",
+                    kind: bevy_noodle_jackdaw::model::PortKind::State,
+                    value: core::option::Option::None,
+                },
+                bevy_noodle_jackdaw::model::PortDef {
+                    name: "speed",
+                    kind: bevy_noodle_jackdaw::model::PortKind::Float,
+                    value: core::option::Option::Some(bevy_noodle_jackdaw::model::FlowValue::Float(1.0)),
+                },
+            ],
+            outputs: [
+                bevy_noodle_jackdaw::model::PortDef {
+                    name: "exit",
+                    kind: bevy_noodle_jackdaw::model::PortKind::State,
+                    value: core::option::Option::None,
+                },
+                bevy_noodle_jackdaw::model::PortDef {
+                    name: "time",
+                    kind: bevy_noodle_jackdaw::model::PortKind::Float,
+                    value: core::option::Option::None,
+                },
+                bevy_noodle_jackdaw::model::PortDef {
+                    name: "finished",
+                    kind: bevy_noodle_jackdaw::model::PortKind::Bool,
+                    value: core::option::Option::None,
+                },
+                bevy_noodle_jackdaw::model::PortDef {
+                    name: "turn",
+                    kind: bevy_noodle_jackdaw::model::PortKind::Float,
+                    value: core::option::Option::None,
+                },
+                bevy_noodle_jackdaw::model::PortDef {
+                    name: "turned",
+                    kind: bevy_noodle_jackdaw::model::PortKind::Float,
+                    value: core::option::Option::None,
+                },
+            ],
+            graph: core::option::Option::None,
+            samples: [],
+            axes: core::option::Option::None,
+        },
+        bevy_noodle_jackdaw::model::FlowNode {
+            id: "",
+            kind: "crouching_jog/rm.crouching.jog.l.turn.90",
+            title: "Jog L Turn 90",
+            position: glam::Vec2 {
+                x: 0.0,
+                y: 0.0,
+            },
+            inputs: [
+                bevy_noodle_jackdaw::model::PortDef {
+                    name: "enter",
+                    kind: bevy_noodle_jackdaw::model::PortKind::State,
+                    value: core::option::Option::None,
+                },
+                bevy_noodle_jackdaw::model::PortDef {
+                    name: "speed",
+                    kind: bevy_noodle_jackdaw::model::PortKind::Float,
+                    value: core::option::Option::Some(bevy_noodle_jackdaw::model::FlowValue::Float(1.0)),
+                },
+            ],
+            outputs: [
+                bevy_noodle_jackdaw::model::PortDef {
+                    name: "exit",
+                    kind: bevy_noodle_jackdaw::model::PortKind::State,
+                    value: core::option::Option::None,
+                },
+                bevy_noodle_jackdaw::model::PortDef {
+                    name: "time",
+                    kind: bevy_noodle_jackdaw::model::PortKind::Float,
+                    value: core::option::Option::None,
+                },
+                bevy_noodle_jackdaw::model::PortDef {
+                    name: "finished",
+                    kind: bevy_noodle_jackdaw::model::PortKind::Bool,
+                    value: core::option::Option::None,
+                },
+                bevy_noodle_jackdaw::model::PortDef {
+                    name: "turn",
+                    kind: bevy_noodle_jackdaw::model::PortKind::Float,
+                    value: core::option::Option::None,
+                },
+                bevy_noodle_jackdaw::model::PortDef {
+                    name: "turned",
+                    kind: bevy_noodle_jackdaw::model::PortKind::Float,
+                    value: core::option::Option::None,
+                },
+            ],
+            graph: core::option::Option::None,
+            samples: [],
+            axes: core::option::Option::None,
+        },
+        bevy_noodle_jackdaw::model::FlowNode {
+            id: "",
+            kind: "crouching_jog/rm.crouching.jog.r.pivot.180",
+            title: "Jog R Pivot 180",
+            position: glam::Vec2 {
+                x: 0.0,
+                y: 0.0,
+            },
+            inputs: [
+                bevy_noodle_jackdaw::model::PortDef {
+                    name: "enter",
+                    kind: bevy_noodle_jackdaw::model::PortKind::State,
+                    value: core::option::Option::None,
+                },
+                bevy_noodle_jackdaw::model::PortDef {
+                    name: "speed",
+                    kind: bevy_noodle_jackdaw::model::PortKind::Float,
+                    value: core::option::Option::Some(bevy_noodle_jackdaw::model::FlowValue::Float(1.0)),
+                },
+            ],
+            outputs: [
+                bevy_noodle_jackdaw::model::PortDef {
+                    name: "exit",
+                    kind: bevy_noodle_jackdaw::model::PortKind::State,
+                    value: core::option::Option::None,
+                },
+                bevy_noodle_jackdaw::model::PortDef {
+                    name: "time",
+                    kind: bevy_noodle_jackdaw::model::PortKind::Float,
+                    value: core::option::Option::None,
+                },
+                bevy_noodle_jackdaw::model::PortDef {
+                    name: "finished",
+                    kind: bevy_noodle_jackdaw::model::PortKind::Bool,
+                    value: core::option::Option::None,
+                },
+                bevy_noodle_jackdaw::model::PortDef {
+                    name: "turn",
+                    kind: bevy_noodle_jackdaw::model::PortKind::Float,
+                    value: core::option::Option::None,
+                },
+                bevy_noodle_jackdaw::model::PortDef {
+                    name: "turned",
+                    kind: bevy_noodle_jackdaw::model::PortKind::Float,
+                    value: core::option::Option::None,
+                },
+            ],
+            graph: core::option::Option::None,
+            samples: [],
+            axes: core::option::Option::None,
+        },
+        bevy_noodle_jackdaw::model::FlowNode {
+            id: "",
+            kind: "crouching_jog/rm.crouching.jog.r.pivot.90",
+            title: "Jog R Pivot 90",
+            position: glam::Vec2 {
+                x: 0.0,
+                y: 0.0,
+            },
+            inputs: [
+                bevy_noodle_jackdaw::model::PortDef {
+                    name: "enter",
+                    kind: bevy_noodle_jackdaw::model::PortKind::State,
+                    value: core::option::Option::None,
+                },
+                bevy_noodle_jackdaw::model::PortDef {
+                    name: "speed",
+                    kind: bevy_noodle_jackdaw::model::PortKind::Float,
+                    value: core::option::Option::Some(bevy_noodle_jackdaw::model::FlowValue::Float(1.0)),
+                },
+            ],
+            outputs: [
+                bevy_noodle_jackdaw::model::PortDef {
+                    name: "exit",
+                    kind: bevy_noodle_jackdaw::model::PortKind::State,
+                    value: core::option::Option::None,
+                },
+                bevy_noodle_jackdaw::model::PortDef {
+                    name: "time",
+                    kind: bevy_noodle_jackdaw::model::PortKind::Float,
+                    value: core::option::Option::None,
+                },
+                bevy_noodle_jackdaw::model::PortDef {
+                    name: "finished",
+                    kind: bevy_noodle_jackdaw::model::PortKind::Bool,
+                    value: core::option::Option::None,
+                },
+                bevy_noodle_jackdaw::model::PortDef {
+                    name: "turn",
+                    kind: bevy_noodle_jackdaw::model::PortKind::Float,
+                    value: core::option::Option::None,
+                },
+                bevy_noodle_jackdaw::model::PortDef {
+                    name: "turned",
+                    kind: bevy_noodle_jackdaw::model::PortKind::Float,
+                    value: core::option::Option::None,
+                },
+            ],
+            graph: core::option::Option::None,
+            samples: [],
+            axes: core::option::Option::None,
+        },
+        bevy_noodle_jackdaw::model::FlowNode {
+            id: "",
+            kind: "crouching_jog/rm.crouching.jog.r.turn.90",
+            title: "Jog R Turn 90",
+            position: glam::Vec2 {
+                x: 0.0,
+                y: 0.0,
+            },
+            inputs: [
+                bevy_noodle_jackdaw::model::PortDef {
+                    name: "enter",
+                    kind: bevy_noodle_jackdaw::model::PortKind::State,
+                    value: core::option::Option::None,
+                },
+                bevy_noodle_jackdaw::model::PortDef {
+                    name: "speed",
+                    kind: bevy_noodle_jackdaw::model::PortKind::Float,
+                    value: core::option::Option::Some(bevy_noodle_jackdaw::model::FlowValue::Float(1.0)),
+                },
+            ],
+            outputs: [
+                bevy_noodle_jackdaw::model::PortDef {
+                    name: "exit",
+                    kind: bevy_noodle_jackdaw::model::PortKind::State,
+                    value: core::option::Option::None,
+                },
+                bevy_noodle_jackdaw::model::PortDef {
+                    name: "time",
+                    kind: bevy_noodle_jackdaw::model::PortKind::Float,
+                    value: core::option::Option::None,
+                },
+                bevy_noodle_jackdaw::model::PortDef {
+                    name: "finished",
+                    kind: bevy_noodle_jackdaw::model::PortKind::Bool,
+                    value: core::option::Option::None,
+                },
+                bevy_noodle_jackdaw::model::PortDef {
+                    name: "turn",
+                    kind: bevy_noodle_jackdaw::model::PortKind::Float,
+                    value: core::option::Option::None,
+                },
+                bevy_noodle_jackdaw::model::PortDef {
+                    name: "turned",
+                    kind: bevy_noodle_jackdaw::model::PortKind::Float,
+                    value: core::option::Option::None,
+                },
+            ],
+            graph: core::option::Option::None,
+            samples: [],
+            axes: core::option::Option::None,
         },
         bevy_noodle_jackdaw::model::FlowNode {
             id: "",
@@ -1003,6 +1459,7 @@ bevy_noodle_jackdaw::model::FlowNodeCatalog {
             ],
             graph: core::option::Option::None,
             samples: [],
+            axes: core::option::Option::None,
         },
         bevy_noodle_jackdaw::model::FlowNode {
             id: "",
@@ -1043,6 +1500,7 @@ bevy_noodle_jackdaw::model::FlowNodeCatalog {
             ],
             graph: core::option::Option::None,
             samples: [],
+            axes: core::option::Option::None,
         },
         bevy_noodle_jackdaw::model::FlowNode {
             id: "",
@@ -1083,6 +1541,7 @@ bevy_noodle_jackdaw::model::FlowNodeCatalog {
             ],
             graph: core::option::Option::None,
             samples: [],
+            axes: core::option::Option::None,
         },
         bevy_noodle_jackdaw::model::FlowNode {
             id: "",
@@ -1123,6 +1582,415 @@ bevy_noodle_jackdaw::model::FlowNodeCatalog {
             ],
             graph: core::option::Option::None,
             samples: [],
+            axes: core::option::Option::None,
+        },
+        bevy_noodle_jackdaw::model::FlowNode {
+            id: "",
+            kind: "crouching_turn/rm.crouching.turn.l.135",
+            title: "Turn L 135",
+            position: glam::Vec2 {
+                x: 0.0,
+                y: 0.0,
+            },
+            inputs: [
+                bevy_noodle_jackdaw::model::PortDef {
+                    name: "enter",
+                    kind: bevy_noodle_jackdaw::model::PortKind::State,
+                    value: core::option::Option::None,
+                },
+                bevy_noodle_jackdaw::model::PortDef {
+                    name: "speed",
+                    kind: bevy_noodle_jackdaw::model::PortKind::Float,
+                    value: core::option::Option::Some(bevy_noodle_jackdaw::model::FlowValue::Float(1.0)),
+                },
+            ],
+            outputs: [
+                bevy_noodle_jackdaw::model::PortDef {
+                    name: "exit",
+                    kind: bevy_noodle_jackdaw::model::PortKind::State,
+                    value: core::option::Option::None,
+                },
+                bevy_noodle_jackdaw::model::PortDef {
+                    name: "time",
+                    kind: bevy_noodle_jackdaw::model::PortKind::Float,
+                    value: core::option::Option::None,
+                },
+                bevy_noodle_jackdaw::model::PortDef {
+                    name: "finished",
+                    kind: bevy_noodle_jackdaw::model::PortKind::Bool,
+                    value: core::option::Option::None,
+                },
+                bevy_noodle_jackdaw::model::PortDef {
+                    name: "turn",
+                    kind: bevy_noodle_jackdaw::model::PortKind::Float,
+                    value: core::option::Option::None,
+                },
+                bevy_noodle_jackdaw::model::PortDef {
+                    name: "turned",
+                    kind: bevy_noodle_jackdaw::model::PortKind::Float,
+                    value: core::option::Option::None,
+                },
+            ],
+            graph: core::option::Option::None,
+            samples: [],
+            axes: core::option::Option::None,
+        },
+        bevy_noodle_jackdaw::model::FlowNode {
+            id: "",
+            kind: "crouching_turn/rm.crouching.turn.l.180",
+            title: "Turn L 180",
+            position: glam::Vec2 {
+                x: 0.0,
+                y: 0.0,
+            },
+            inputs: [
+                bevy_noodle_jackdaw::model::PortDef {
+                    name: "enter",
+                    kind: bevy_noodle_jackdaw::model::PortKind::State,
+                    value: core::option::Option::None,
+                },
+                bevy_noodle_jackdaw::model::PortDef {
+                    name: "speed",
+                    kind: bevy_noodle_jackdaw::model::PortKind::Float,
+                    value: core::option::Option::Some(bevy_noodle_jackdaw::model::FlowValue::Float(1.0)),
+                },
+            ],
+            outputs: [
+                bevy_noodle_jackdaw::model::PortDef {
+                    name: "exit",
+                    kind: bevy_noodle_jackdaw::model::PortKind::State,
+                    value: core::option::Option::None,
+                },
+                bevy_noodle_jackdaw::model::PortDef {
+                    name: "time",
+                    kind: bevy_noodle_jackdaw::model::PortKind::Float,
+                    value: core::option::Option::None,
+                },
+                bevy_noodle_jackdaw::model::PortDef {
+                    name: "finished",
+                    kind: bevy_noodle_jackdaw::model::PortKind::Bool,
+                    value: core::option::Option::None,
+                },
+                bevy_noodle_jackdaw::model::PortDef {
+                    name: "turn",
+                    kind: bevy_noodle_jackdaw::model::PortKind::Float,
+                    value: core::option::Option::None,
+                },
+                bevy_noodle_jackdaw::model::PortDef {
+                    name: "turned",
+                    kind: bevy_noodle_jackdaw::model::PortKind::Float,
+                    value: core::option::Option::None,
+                },
+            ],
+            graph: core::option::Option::None,
+            samples: [],
+            axes: core::option::Option::None,
+        },
+        bevy_noodle_jackdaw::model::FlowNode {
+            id: "",
+            kind: "crouching_turn/rm.crouching.turn.l.45",
+            title: "Turn L 45",
+            position: glam::Vec2 {
+                x: 0.0,
+                y: 0.0,
+            },
+            inputs: [
+                bevy_noodle_jackdaw::model::PortDef {
+                    name: "enter",
+                    kind: bevy_noodle_jackdaw::model::PortKind::State,
+                    value: core::option::Option::None,
+                },
+                bevy_noodle_jackdaw::model::PortDef {
+                    name: "speed",
+                    kind: bevy_noodle_jackdaw::model::PortKind::Float,
+                    value: core::option::Option::Some(bevy_noodle_jackdaw::model::FlowValue::Float(1.0)),
+                },
+            ],
+            outputs: [
+                bevy_noodle_jackdaw::model::PortDef {
+                    name: "exit",
+                    kind: bevy_noodle_jackdaw::model::PortKind::State,
+                    value: core::option::Option::None,
+                },
+                bevy_noodle_jackdaw::model::PortDef {
+                    name: "time",
+                    kind: bevy_noodle_jackdaw::model::PortKind::Float,
+                    value: core::option::Option::None,
+                },
+                bevy_noodle_jackdaw::model::PortDef {
+                    name: "finished",
+                    kind: bevy_noodle_jackdaw::model::PortKind::Bool,
+                    value: core::option::Option::None,
+                },
+                bevy_noodle_jackdaw::model::PortDef {
+                    name: "turn",
+                    kind: bevy_noodle_jackdaw::model::PortKind::Float,
+                    value: core::option::Option::None,
+                },
+                bevy_noodle_jackdaw::model::PortDef {
+                    name: "turned",
+                    kind: bevy_noodle_jackdaw::model::PortKind::Float,
+                    value: core::option::Option::None,
+                },
+            ],
+            graph: core::option::Option::None,
+            samples: [],
+            axes: core::option::Option::None,
+        },
+        bevy_noodle_jackdaw::model::FlowNode {
+            id: "",
+            kind: "crouching_turn/rm.crouching.turn.l.90",
+            title: "Turn L 90",
+            position: glam::Vec2 {
+                x: 0.0,
+                y: 0.0,
+            },
+            inputs: [
+                bevy_noodle_jackdaw::model::PortDef {
+                    name: "enter",
+                    kind: bevy_noodle_jackdaw::model::PortKind::State,
+                    value: core::option::Option::None,
+                },
+                bevy_noodle_jackdaw::model::PortDef {
+                    name: "speed",
+                    kind: bevy_noodle_jackdaw::model::PortKind::Float,
+                    value: core::option::Option::Some(bevy_noodle_jackdaw::model::FlowValue::Float(1.0)),
+                },
+            ],
+            outputs: [
+                bevy_noodle_jackdaw::model::PortDef {
+                    name: "exit",
+                    kind: bevy_noodle_jackdaw::model::PortKind::State,
+                    value: core::option::Option::None,
+                },
+                bevy_noodle_jackdaw::model::PortDef {
+                    name: "time",
+                    kind: bevy_noodle_jackdaw::model::PortKind::Float,
+                    value: core::option::Option::None,
+                },
+                bevy_noodle_jackdaw::model::PortDef {
+                    name: "finished",
+                    kind: bevy_noodle_jackdaw::model::PortKind::Bool,
+                    value: core::option::Option::None,
+                },
+                bevy_noodle_jackdaw::model::PortDef {
+                    name: "turn",
+                    kind: bevy_noodle_jackdaw::model::PortKind::Float,
+                    value: core::option::Option::None,
+                },
+                bevy_noodle_jackdaw::model::PortDef {
+                    name: "turned",
+                    kind: bevy_noodle_jackdaw::model::PortKind::Float,
+                    value: core::option::Option::None,
+                },
+            ],
+            graph: core::option::Option::None,
+            samples: [],
+            axes: core::option::Option::None,
+        },
+        bevy_noodle_jackdaw::model::FlowNode {
+            id: "",
+            kind: "crouching_turn/rm.crouching.turn.r.135",
+            title: "Turn R 135",
+            position: glam::Vec2 {
+                x: 0.0,
+                y: 0.0,
+            },
+            inputs: [
+                bevy_noodle_jackdaw::model::PortDef {
+                    name: "enter",
+                    kind: bevy_noodle_jackdaw::model::PortKind::State,
+                    value: core::option::Option::None,
+                },
+                bevy_noodle_jackdaw::model::PortDef {
+                    name: "speed",
+                    kind: bevy_noodle_jackdaw::model::PortKind::Float,
+                    value: core::option::Option::Some(bevy_noodle_jackdaw::model::FlowValue::Float(1.0)),
+                },
+            ],
+            outputs: [
+                bevy_noodle_jackdaw::model::PortDef {
+                    name: "exit",
+                    kind: bevy_noodle_jackdaw::model::PortKind::State,
+                    value: core::option::Option::None,
+                },
+                bevy_noodle_jackdaw::model::PortDef {
+                    name: "time",
+                    kind: bevy_noodle_jackdaw::model::PortKind::Float,
+                    value: core::option::Option::None,
+                },
+                bevy_noodle_jackdaw::model::PortDef {
+                    name: "finished",
+                    kind: bevy_noodle_jackdaw::model::PortKind::Bool,
+                    value: core::option::Option::None,
+                },
+                bevy_noodle_jackdaw::model::PortDef {
+                    name: "turn",
+                    kind: bevy_noodle_jackdaw::model::PortKind::Float,
+                    value: core::option::Option::None,
+                },
+                bevy_noodle_jackdaw::model::PortDef {
+                    name: "turned",
+                    kind: bevy_noodle_jackdaw::model::PortKind::Float,
+                    value: core::option::Option::None,
+                },
+            ],
+            graph: core::option::Option::None,
+            samples: [],
+            axes: core::option::Option::None,
+        },
+        bevy_noodle_jackdaw::model::FlowNode {
+            id: "",
+            kind: "crouching_turn/rm.crouching.turn.r.180",
+            title: "Turn R 180",
+            position: glam::Vec2 {
+                x: 0.0,
+                y: 0.0,
+            },
+            inputs: [
+                bevy_noodle_jackdaw::model::PortDef {
+                    name: "enter",
+                    kind: bevy_noodle_jackdaw::model::PortKind::State,
+                    value: core::option::Option::None,
+                },
+                bevy_noodle_jackdaw::model::PortDef {
+                    name: "speed",
+                    kind: bevy_noodle_jackdaw::model::PortKind::Float,
+                    value: core::option::Option::Some(bevy_noodle_jackdaw::model::FlowValue::Float(1.0)),
+                },
+            ],
+            outputs: [
+                bevy_noodle_jackdaw::model::PortDef {
+                    name: "exit",
+                    kind: bevy_noodle_jackdaw::model::PortKind::State,
+                    value: core::option::Option::None,
+                },
+                bevy_noodle_jackdaw::model::PortDef {
+                    name: "time",
+                    kind: bevy_noodle_jackdaw::model::PortKind::Float,
+                    value: core::option::Option::None,
+                },
+                bevy_noodle_jackdaw::model::PortDef {
+                    name: "finished",
+                    kind: bevy_noodle_jackdaw::model::PortKind::Bool,
+                    value: core::option::Option::None,
+                },
+                bevy_noodle_jackdaw::model::PortDef {
+                    name: "turn",
+                    kind: bevy_noodle_jackdaw::model::PortKind::Float,
+                    value: core::option::Option::None,
+                },
+                bevy_noodle_jackdaw::model::PortDef {
+                    name: "turned",
+                    kind: bevy_noodle_jackdaw::model::PortKind::Float,
+                    value: core::option::Option::None,
+                },
+            ],
+            graph: core::option::Option::None,
+            samples: [],
+            axes: core::option::Option::None,
+        },
+        bevy_noodle_jackdaw::model::FlowNode {
+            id: "",
+            kind: "crouching_turn/rm.crouching.turn.r.45",
+            title: "Turn R 45",
+            position: glam::Vec2 {
+                x: 0.0,
+                y: 0.0,
+            },
+            inputs: [
+                bevy_noodle_jackdaw::model::PortDef {
+                    name: "enter",
+                    kind: bevy_noodle_jackdaw::model::PortKind::State,
+                    value: core::option::Option::None,
+                },
+                bevy_noodle_jackdaw::model::PortDef {
+                    name: "speed",
+                    kind: bevy_noodle_jackdaw::model::PortKind::Float,
+                    value: core::option::Option::Some(bevy_noodle_jackdaw::model::FlowValue::Float(1.0)),
+                },
+            ],
+            outputs: [
+                bevy_noodle_jackdaw::model::PortDef {
+                    name: "exit",
+                    kind: bevy_noodle_jackdaw::model::PortKind::State,
+                    value: core::option::Option::None,
+                },
+                bevy_noodle_jackdaw::model::PortDef {
+                    name: "time",
+                    kind: bevy_noodle_jackdaw::model::PortKind::Float,
+                    value: core::option::Option::None,
+                },
+                bevy_noodle_jackdaw::model::PortDef {
+                    name: "finished",
+                    kind: bevy_noodle_jackdaw::model::PortKind::Bool,
+                    value: core::option::Option::None,
+                },
+                bevy_noodle_jackdaw::model::PortDef {
+                    name: "turn",
+                    kind: bevy_noodle_jackdaw::model::PortKind::Float,
+                    value: core::option::Option::None,
+                },
+                bevy_noodle_jackdaw::model::PortDef {
+                    name: "turned",
+                    kind: bevy_noodle_jackdaw::model::PortKind::Float,
+                    value: core::option::Option::None,
+                },
+            ],
+            graph: core::option::Option::None,
+            samples: [],
+            axes: core::option::Option::None,
+        },
+        bevy_noodle_jackdaw::model::FlowNode {
+            id: "",
+            kind: "crouching_turn/rm.crouching.turn.r.90",
+            title: "Turn R 90",
+            position: glam::Vec2 {
+                x: 0.0,
+                y: 0.0,
+            },
+            inputs: [
+                bevy_noodle_jackdaw::model::PortDef {
+                    name: "enter",
+                    kind: bevy_noodle_jackdaw::model::PortKind::State,
+                    value: core::option::Option::None,
+                },
+                bevy_noodle_jackdaw::model::PortDef {
+                    name: "speed",
+                    kind: bevy_noodle_jackdaw::model::PortKind::Float,
+                    value: core::option::Option::Some(bevy_noodle_jackdaw::model::FlowValue::Float(1.0)),
+                },
+            ],
+            outputs: [
+                bevy_noodle_jackdaw::model::PortDef {
+                    name: "exit",
+                    kind: bevy_noodle_jackdaw::model::PortKind::State,
+                    value: core::option::Option::None,
+                },
+                bevy_noodle_jackdaw::model::PortDef {
+                    name: "time",
+                    kind: bevy_noodle_jackdaw::model::PortKind::Float,
+                    value: core::option::Option::None,
+                },
+                bevy_noodle_jackdaw::model::PortDef {
+                    name: "finished",
+                    kind: bevy_noodle_jackdaw::model::PortKind::Bool,
+                    value: core::option::Option::None,
+                },
+                bevy_noodle_jackdaw::model::PortDef {
+                    name: "turn",
+                    kind: bevy_noodle_jackdaw::model::PortKind::Float,
+                    value: core::option::Option::None,
+                },
+                bevy_noodle_jackdaw::model::PortDef {
+                    name: "turned",
+                    kind: bevy_noodle_jackdaw::model::PortKind::Float,
+                    value: core::option::Option::None,
+                },
+            ],
+            graph: core::option::Option::None,
+            samples: [],
+            axes: core::option::Option::None,
         },
         bevy_noodle_jackdaw::model::FlowNode {
             id: "",
@@ -1163,6 +2031,7 @@ bevy_noodle_jackdaw::model::FlowNodeCatalog {
             ],
             graph: core::option::Option::None,
             samples: [],
+            axes: core::option::Option::None,
         },
         bevy_noodle_jackdaw::model::FlowNode {
             id: "",
@@ -1203,6 +2072,7 @@ bevy_noodle_jackdaw::model::FlowNodeCatalog {
             ],
             graph: core::option::Option::None,
             samples: [],
+            axes: core::option::Option::None,
         },
         bevy_noodle_jackdaw::model::FlowNode {
             id: "",
@@ -1243,6 +2113,7 @@ bevy_noodle_jackdaw::model::FlowNodeCatalog {
             ],
             graph: core::option::Option::None,
             samples: [],
+            axes: core::option::Option::None,
         },
         bevy_noodle_jackdaw::model::FlowNode {
             id: "",
@@ -1283,6 +2154,7 @@ bevy_noodle_jackdaw::model::FlowNodeCatalog {
             ],
             graph: core::option::Option::None,
             samples: [],
+            axes: core::option::Option::None,
         },
         bevy_noodle_jackdaw::model::FlowNode {
             id: "",
@@ -1323,6 +2195,7 @@ bevy_noodle_jackdaw::model::FlowNodeCatalog {
             ],
             graph: core::option::Option::None,
             samples: [],
+            axes: core::option::Option::None,
         },
         bevy_noodle_jackdaw::model::FlowNode {
             id: "",
@@ -1363,6 +2236,7 @@ bevy_noodle_jackdaw::model::FlowNodeCatalog {
             ],
             graph: core::option::Option::None,
             samples: [],
+            axes: core::option::Option::None,
         },
         bevy_noodle_jackdaw::model::FlowNode {
             id: "",
@@ -1403,6 +2277,7 @@ bevy_noodle_jackdaw::model::FlowNodeCatalog {
             ],
             graph: core::option::Option::None,
             samples: [],
+            axes: core::option::Option::None,
         },
         bevy_noodle_jackdaw::model::FlowNode {
             id: "",
@@ -1443,6 +2318,7 @@ bevy_noodle_jackdaw::model::FlowNodeCatalog {
             ],
             graph: core::option::Option::None,
             samples: [],
+            axes: core::option::Option::None,
         },
         bevy_noodle_jackdaw::model::FlowNode {
             id: "",
@@ -1483,6 +2359,7 @@ bevy_noodle_jackdaw::model::FlowNodeCatalog {
             ],
             graph: core::option::Option::None,
             samples: [],
+            axes: core::option::Option::None,
         },
         bevy_noodle_jackdaw::model::FlowNode {
             id: "",
@@ -1523,6 +2400,7 @@ bevy_noodle_jackdaw::model::FlowNodeCatalog {
             ],
             graph: core::option::Option::None,
             samples: [],
+            axes: core::option::Option::None,
         },
         bevy_noodle_jackdaw::model::FlowNode {
             id: "",
@@ -1563,6 +2441,7 @@ bevy_noodle_jackdaw::model::FlowNodeCatalog {
             ],
             graph: core::option::Option::None,
             samples: [],
+            axes: core::option::Option::None,
         },
         bevy_noodle_jackdaw::model::FlowNode {
             id: "",
@@ -1603,6 +2482,7 @@ bevy_noodle_jackdaw::model::FlowNodeCatalog {
             ],
             graph: core::option::Option::None,
             samples: [],
+            axes: core::option::Option::None,
         },
         bevy_noodle_jackdaw::model::FlowNode {
             id: "",
@@ -1643,6 +2523,7 @@ bevy_noodle_jackdaw::model::FlowNodeCatalog {
             ],
             graph: core::option::Option::None,
             samples: [],
+            axes: core::option::Option::None,
         },
         bevy_noodle_jackdaw::model::FlowNode {
             id: "",
@@ -1683,6 +2564,313 @@ bevy_noodle_jackdaw::model::FlowNodeCatalog {
             ],
             graph: core::option::Option::None,
             samples: [],
+            axes: core::option::Option::None,
+        },
+        bevy_noodle_jackdaw::model::FlowNode {
+            id: "",
+            kind: "crouching_walk/rm.crouching.walk.l.pivot.180",
+            title: "Walk L Pivot 180",
+            position: glam::Vec2 {
+                x: 0.0,
+                y: 0.0,
+            },
+            inputs: [
+                bevy_noodle_jackdaw::model::PortDef {
+                    name: "enter",
+                    kind: bevy_noodle_jackdaw::model::PortKind::State,
+                    value: core::option::Option::None,
+                },
+                bevy_noodle_jackdaw::model::PortDef {
+                    name: "speed",
+                    kind: bevy_noodle_jackdaw::model::PortKind::Float,
+                    value: core::option::Option::Some(bevy_noodle_jackdaw::model::FlowValue::Float(1.0)),
+                },
+            ],
+            outputs: [
+                bevy_noodle_jackdaw::model::PortDef {
+                    name: "exit",
+                    kind: bevy_noodle_jackdaw::model::PortKind::State,
+                    value: core::option::Option::None,
+                },
+                bevy_noodle_jackdaw::model::PortDef {
+                    name: "time",
+                    kind: bevy_noodle_jackdaw::model::PortKind::Float,
+                    value: core::option::Option::None,
+                },
+                bevy_noodle_jackdaw::model::PortDef {
+                    name: "finished",
+                    kind: bevy_noodle_jackdaw::model::PortKind::Bool,
+                    value: core::option::Option::None,
+                },
+                bevy_noodle_jackdaw::model::PortDef {
+                    name: "turn",
+                    kind: bevy_noodle_jackdaw::model::PortKind::Float,
+                    value: core::option::Option::None,
+                },
+                bevy_noodle_jackdaw::model::PortDef {
+                    name: "turned",
+                    kind: bevy_noodle_jackdaw::model::PortKind::Float,
+                    value: core::option::Option::None,
+                },
+            ],
+            graph: core::option::Option::None,
+            samples: [],
+            axes: core::option::Option::None,
+        },
+        bevy_noodle_jackdaw::model::FlowNode {
+            id: "",
+            kind: "crouching_walk/rm.crouching.walk.l.pivot.90",
+            title: "Walk L Pivot 90",
+            position: glam::Vec2 {
+                x: 0.0,
+                y: 0.0,
+            },
+            inputs: [
+                bevy_noodle_jackdaw::model::PortDef {
+                    name: "enter",
+                    kind: bevy_noodle_jackdaw::model::PortKind::State,
+                    value: core::option::Option::None,
+                },
+                bevy_noodle_jackdaw::model::PortDef {
+                    name: "speed",
+                    kind: bevy_noodle_jackdaw::model::PortKind::Float,
+                    value: core::option::Option::Some(bevy_noodle_jackdaw::model::FlowValue::Float(1.0)),
+                },
+            ],
+            outputs: [
+                bevy_noodle_jackdaw::model::PortDef {
+                    name: "exit",
+                    kind: bevy_noodle_jackdaw::model::PortKind::State,
+                    value: core::option::Option::None,
+                },
+                bevy_noodle_jackdaw::model::PortDef {
+                    name: "time",
+                    kind: bevy_noodle_jackdaw::model::PortKind::Float,
+                    value: core::option::Option::None,
+                },
+                bevy_noodle_jackdaw::model::PortDef {
+                    name: "finished",
+                    kind: bevy_noodle_jackdaw::model::PortKind::Bool,
+                    value: core::option::Option::None,
+                },
+                bevy_noodle_jackdaw::model::PortDef {
+                    name: "turn",
+                    kind: bevy_noodle_jackdaw::model::PortKind::Float,
+                    value: core::option::Option::None,
+                },
+                bevy_noodle_jackdaw::model::PortDef {
+                    name: "turned",
+                    kind: bevy_noodle_jackdaw::model::PortKind::Float,
+                    value: core::option::Option::None,
+                },
+            ],
+            graph: core::option::Option::None,
+            samples: [],
+            axes: core::option::Option::None,
+        },
+        bevy_noodle_jackdaw::model::FlowNode {
+            id: "",
+            kind: "crouching_walk/rm.crouching.walk.l.turn.90",
+            title: "Walk L Turn 90",
+            position: glam::Vec2 {
+                x: 0.0,
+                y: 0.0,
+            },
+            inputs: [
+                bevy_noodle_jackdaw::model::PortDef {
+                    name: "enter",
+                    kind: bevy_noodle_jackdaw::model::PortKind::State,
+                    value: core::option::Option::None,
+                },
+                bevy_noodle_jackdaw::model::PortDef {
+                    name: "speed",
+                    kind: bevy_noodle_jackdaw::model::PortKind::Float,
+                    value: core::option::Option::Some(bevy_noodle_jackdaw::model::FlowValue::Float(1.0)),
+                },
+            ],
+            outputs: [
+                bevy_noodle_jackdaw::model::PortDef {
+                    name: "exit",
+                    kind: bevy_noodle_jackdaw::model::PortKind::State,
+                    value: core::option::Option::None,
+                },
+                bevy_noodle_jackdaw::model::PortDef {
+                    name: "time",
+                    kind: bevy_noodle_jackdaw::model::PortKind::Float,
+                    value: core::option::Option::None,
+                },
+                bevy_noodle_jackdaw::model::PortDef {
+                    name: "finished",
+                    kind: bevy_noodle_jackdaw::model::PortKind::Bool,
+                    value: core::option::Option::None,
+                },
+                bevy_noodle_jackdaw::model::PortDef {
+                    name: "turn",
+                    kind: bevy_noodle_jackdaw::model::PortKind::Float,
+                    value: core::option::Option::None,
+                },
+                bevy_noodle_jackdaw::model::PortDef {
+                    name: "turned",
+                    kind: bevy_noodle_jackdaw::model::PortKind::Float,
+                    value: core::option::Option::None,
+                },
+            ],
+            graph: core::option::Option::None,
+            samples: [],
+            axes: core::option::Option::None,
+        },
+        bevy_noodle_jackdaw::model::FlowNode {
+            id: "",
+            kind: "crouching_walk/rm.crouching.walk.r.pivot.180",
+            title: "Walk R Pivot 180",
+            position: glam::Vec2 {
+                x: 0.0,
+                y: 0.0,
+            },
+            inputs: [
+                bevy_noodle_jackdaw::model::PortDef {
+                    name: "enter",
+                    kind: bevy_noodle_jackdaw::model::PortKind::State,
+                    value: core::option::Option::None,
+                },
+                bevy_noodle_jackdaw::model::PortDef {
+                    name: "speed",
+                    kind: bevy_noodle_jackdaw::model::PortKind::Float,
+                    value: core::option::Option::Some(bevy_noodle_jackdaw::model::FlowValue::Float(1.0)),
+                },
+            ],
+            outputs: [
+                bevy_noodle_jackdaw::model::PortDef {
+                    name: "exit",
+                    kind: bevy_noodle_jackdaw::model::PortKind::State,
+                    value: core::option::Option::None,
+                },
+                bevy_noodle_jackdaw::model::PortDef {
+                    name: "time",
+                    kind: bevy_noodle_jackdaw::model::PortKind::Float,
+                    value: core::option::Option::None,
+                },
+                bevy_noodle_jackdaw::model::PortDef {
+                    name: "finished",
+                    kind: bevy_noodle_jackdaw::model::PortKind::Bool,
+                    value: core::option::Option::None,
+                },
+                bevy_noodle_jackdaw::model::PortDef {
+                    name: "turn",
+                    kind: bevy_noodle_jackdaw::model::PortKind::Float,
+                    value: core::option::Option::None,
+                },
+                bevy_noodle_jackdaw::model::PortDef {
+                    name: "turned",
+                    kind: bevy_noodle_jackdaw::model::PortKind::Float,
+                    value: core::option::Option::None,
+                },
+            ],
+            graph: core::option::Option::None,
+            samples: [],
+            axes: core::option::Option::None,
+        },
+        bevy_noodle_jackdaw::model::FlowNode {
+            id: "",
+            kind: "crouching_walk/rm.crouching.walk.r.pivot.90",
+            title: "Walk R Pivot 90",
+            position: glam::Vec2 {
+                x: 0.0,
+                y: 0.0,
+            },
+            inputs: [
+                bevy_noodle_jackdaw::model::PortDef {
+                    name: "enter",
+                    kind: bevy_noodle_jackdaw::model::PortKind::State,
+                    value: core::option::Option::None,
+                },
+                bevy_noodle_jackdaw::model::PortDef {
+                    name: "speed",
+                    kind: bevy_noodle_jackdaw::model::PortKind::Float,
+                    value: core::option::Option::Some(bevy_noodle_jackdaw::model::FlowValue::Float(1.0)),
+                },
+            ],
+            outputs: [
+                bevy_noodle_jackdaw::model::PortDef {
+                    name: "exit",
+                    kind: bevy_noodle_jackdaw::model::PortKind::State,
+                    value: core::option::Option::None,
+                },
+                bevy_noodle_jackdaw::model::PortDef {
+                    name: "time",
+                    kind: bevy_noodle_jackdaw::model::PortKind::Float,
+                    value: core::option::Option::None,
+                },
+                bevy_noodle_jackdaw::model::PortDef {
+                    name: "finished",
+                    kind: bevy_noodle_jackdaw::model::PortKind::Bool,
+                    value: core::option::Option::None,
+                },
+                bevy_noodle_jackdaw::model::PortDef {
+                    name: "turn",
+                    kind: bevy_noodle_jackdaw::model::PortKind::Float,
+                    value: core::option::Option::None,
+                },
+                bevy_noodle_jackdaw::model::PortDef {
+                    name: "turned",
+                    kind: bevy_noodle_jackdaw::model::PortKind::Float,
+                    value: core::option::Option::None,
+                },
+            ],
+            graph: core::option::Option::None,
+            samples: [],
+            axes: core::option::Option::None,
+        },
+        bevy_noodle_jackdaw::model::FlowNode {
+            id: "",
+            kind: "crouching_walk/rm.crouching.walk.r.turn.90",
+            title: "Walk R Turn 90",
+            position: glam::Vec2 {
+                x: 0.0,
+                y: 0.0,
+            },
+            inputs: [
+                bevy_noodle_jackdaw::model::PortDef {
+                    name: "enter",
+                    kind: bevy_noodle_jackdaw::model::PortKind::State,
+                    value: core::option::Option::None,
+                },
+                bevy_noodle_jackdaw::model::PortDef {
+                    name: "speed",
+                    kind: bevy_noodle_jackdaw::model::PortKind::Float,
+                    value: core::option::Option::Some(bevy_noodle_jackdaw::model::FlowValue::Float(1.0)),
+                },
+            ],
+            outputs: [
+                bevy_noodle_jackdaw::model::PortDef {
+                    name: "exit",
+                    kind: bevy_noodle_jackdaw::model::PortKind::State,
+                    value: core::option::Option::None,
+                },
+                bevy_noodle_jackdaw::model::PortDef {
+                    name: "time",
+                    kind: bevy_noodle_jackdaw::model::PortKind::Float,
+                    value: core::option::Option::None,
+                },
+                bevy_noodle_jackdaw::model::PortDef {
+                    name: "finished",
+                    kind: bevy_noodle_jackdaw::model::PortKind::Bool,
+                    value: core::option::Option::None,
+                },
+                bevy_noodle_jackdaw::model::PortDef {
+                    name: "turn",
+                    kind: bevy_noodle_jackdaw::model::PortKind::Float,
+                    value: core::option::Option::None,
+                },
+                bevy_noodle_jackdaw::model::PortDef {
+                    name: "turned",
+                    kind: bevy_noodle_jackdaw::model::PortKind::Float,
+                    value: core::option::Option::None,
+                },
+            ],
+            graph: core::option::Option::None,
+            samples: [],
+            axes: core::option::Option::None,
         },
         bevy_noodle_jackdaw::model::FlowNode {
             id: "",
@@ -1702,6 +2890,7 @@ bevy_noodle_jackdaw::model::FlowNodeCatalog {
             ],
             graph: core::option::Option::None,
             samples: [],
+            axes: core::option::Option::None,
         },
         bevy_noodle_jackdaw::model::FlowNode {
             id: "",
@@ -1731,6 +2920,7 @@ bevy_noodle_jackdaw::model::FlowNodeCatalog {
             ],
             graph: core::option::Option::None,
             samples: [],
+            axes: core::option::Option::None,
         },
         bevy_noodle_jackdaw::model::FlowNode {
             id: "",
@@ -1750,6 +2940,7 @@ bevy_noodle_jackdaw::model::FlowNodeCatalog {
             ],
             graph: core::option::Option::None,
             samples: [],
+            axes: core::option::Option::None,
         },
         bevy_noodle_jackdaw::model::FlowNode {
             id: "",
@@ -1769,6 +2960,7 @@ bevy_noodle_jackdaw::model::FlowNodeCatalog {
             ],
             graph: core::option::Option::None,
             samples: [],
+            axes: core::option::Option::None,
         },
         bevy_noodle_jackdaw::model::FlowNode {
             id: "",
@@ -1788,6 +2980,7 @@ bevy_noodle_jackdaw::model::FlowNodeCatalog {
             ],
             graph: core::option::Option::None,
             samples: [],
+            axes: core::option::Option::None,
         },
         bevy_noodle_jackdaw::model::FlowNode {
             id: "",
@@ -1817,6 +3010,7 @@ bevy_noodle_jackdaw::model::FlowNodeCatalog {
             ],
             graph: core::option::Option::None,
             samples: [],
+            axes: core::option::Option::None,
         },
         bevy_noodle_jackdaw::model::FlowNode {
             id: "",
@@ -1846,6 +3040,7 @@ bevy_noodle_jackdaw::model::FlowNodeCatalog {
             ],
             graph: core::option::Option::None,
             samples: [],
+            axes: core::option::Option::None,
         },
         bevy_noodle_jackdaw::model::FlowNode {
             id: "",
@@ -1865,6 +3060,7 @@ bevy_noodle_jackdaw::model::FlowNodeCatalog {
             ],
             graph: core::option::Option::None,
             samples: [],
+            axes: core::option::Option::None,
         },
         bevy_noodle_jackdaw::model::FlowNode {
             id: "",
@@ -1894,6 +3090,7 @@ bevy_noodle_jackdaw::model::FlowNodeCatalog {
             ],
             graph: core::option::Option::None,
             samples: [],
+            axes: core::option::Option::None,
         },
         bevy_noodle_jackdaw::model::FlowNode {
             id: "",
@@ -1913,6 +3110,7 @@ bevy_noodle_jackdaw::model::FlowNodeCatalog {
             ],
             graph: core::option::Option::None,
             samples: [],
+            axes: core::option::Option::None,
         },
         bevy_noodle_jackdaw::model::FlowNode {
             id: "",
@@ -1953,6 +3151,7 @@ bevy_noodle_jackdaw::model::FlowNodeCatalog {
             ],
             graph: core::option::Option::None,
             samples: [],
+            axes: core::option::Option::None,
         },
         bevy_noodle_jackdaw::model::FlowNode {
             id: "",
@@ -1993,6 +3192,7 @@ bevy_noodle_jackdaw::model::FlowNodeCatalog {
             ],
             graph: core::option::Option::None,
             samples: [],
+            axes: core::option::Option::None,
         },
         bevy_noodle_jackdaw::model::FlowNode {
             id: "",
@@ -2033,6 +3233,7 @@ bevy_noodle_jackdaw::model::FlowNodeCatalog {
             ],
             graph: core::option::Option::None,
             samples: [],
+            axes: core::option::Option::None,
         },
         bevy_noodle_jackdaw::model::FlowNode {
             id: "",
@@ -2073,6 +3274,7 @@ bevy_noodle_jackdaw::model::FlowNodeCatalog {
             ],
             graph: core::option::Option::None,
             samples: [],
+            axes: core::option::Option::None,
         },
         bevy_noodle_jackdaw::model::FlowNode {
             id: "",
@@ -2113,6 +3315,7 @@ bevy_noodle_jackdaw::model::FlowNodeCatalog {
             ],
             graph: core::option::Option::None,
             samples: [],
+            axes: core::option::Option::None,
         },
         bevy_noodle_jackdaw::model::FlowNode {
             id: "",
@@ -2153,6 +3356,7 @@ bevy_noodle_jackdaw::model::FlowNodeCatalog {
             ],
             graph: core::option::Option::None,
             samples: [],
+            axes: core::option::Option::None,
         },
         bevy_noodle_jackdaw::model::FlowNode {
             id: "",
@@ -2193,6 +3397,7 @@ bevy_noodle_jackdaw::model::FlowNodeCatalog {
             ],
             graph: core::option::Option::None,
             samples: [],
+            axes: core::option::Option::None,
         },
         bevy_noodle_jackdaw::model::FlowNode {
             id: "",
@@ -2233,6 +3438,7 @@ bevy_noodle_jackdaw::model::FlowNodeCatalog {
             ],
             graph: core::option::Option::None,
             samples: [],
+            axes: core::option::Option::None,
         },
         bevy_noodle_jackdaw::model::FlowNode {
             id: "",
@@ -2273,6 +3479,7 @@ bevy_noodle_jackdaw::model::FlowNodeCatalog {
             ],
             graph: core::option::Option::None,
             samples: [],
+            axes: core::option::Option::None,
         },
         bevy_noodle_jackdaw::model::FlowNode {
             id: "",
@@ -2313,6 +3520,7 @@ bevy_noodle_jackdaw::model::FlowNodeCatalog {
             ],
             graph: core::option::Option::None,
             samples: [],
+            axes: core::option::Option::None,
         },
         bevy_noodle_jackdaw::model::FlowNode {
             id: "",
@@ -2353,6 +3561,7 @@ bevy_noodle_jackdaw::model::FlowNodeCatalog {
             ],
             graph: core::option::Option::None,
             samples: [],
+            axes: core::option::Option::None,
         },
         bevy_noodle_jackdaw::model::FlowNode {
             id: "",
@@ -2393,6 +3602,7 @@ bevy_noodle_jackdaw::model::FlowNodeCatalog {
             ],
             graph: core::option::Option::None,
             samples: [],
+            axes: core::option::Option::None,
         },
         bevy_noodle_jackdaw::model::FlowNode {
             id: "",
@@ -2433,6 +3643,7 @@ bevy_noodle_jackdaw::model::FlowNodeCatalog {
             ],
             graph: core::option::Option::None,
             samples: [],
+            axes: core::option::Option::None,
         },
         bevy_noodle_jackdaw::model::FlowNode {
             id: "",
@@ -2473,6 +3684,7 @@ bevy_noodle_jackdaw::model::FlowNodeCatalog {
             ],
             graph: core::option::Option::None,
             samples: [],
+            axes: core::option::Option::None,
         },
         bevy_noodle_jackdaw::model::FlowNode {
             id: "",
@@ -2513,6 +3725,7 @@ bevy_noodle_jackdaw::model::FlowNodeCatalog {
             ],
             graph: core::option::Option::None,
             samples: [],
+            axes: core::option::Option::None,
         },
         bevy_noodle_jackdaw::model::FlowNode {
             id: "",
@@ -2553,6 +3766,7 @@ bevy_noodle_jackdaw::model::FlowNodeCatalog {
             ],
             graph: core::option::Option::None,
             samples: [],
+            axes: core::option::Option::None,
         },
         bevy_noodle_jackdaw::model::FlowNode {
             id: "",
@@ -2593,6 +3807,7 @@ bevy_noodle_jackdaw::model::FlowNodeCatalog {
             ],
             graph: core::option::Option::None,
             samples: [],
+            axes: core::option::Option::None,
         },
         bevy_noodle_jackdaw::model::FlowNode {
             id: "",
@@ -2633,6 +3848,7 @@ bevy_noodle_jackdaw::model::FlowNodeCatalog {
             ],
             graph: core::option::Option::None,
             samples: [],
+            axes: core::option::Option::None,
         },
         bevy_noodle_jackdaw::model::FlowNode {
             id: "",
@@ -2673,6 +3889,7 @@ bevy_noodle_jackdaw::model::FlowNodeCatalog {
             ],
             graph: core::option::Option::None,
             samples: [],
+            axes: core::option::Option::None,
         },
         bevy_noodle_jackdaw::model::FlowNode {
             id: "",
@@ -2713,6 +3930,7 @@ bevy_noodle_jackdaw::model::FlowNodeCatalog {
             ],
             graph: core::option::Option::None,
             samples: [],
+            axes: core::option::Option::None,
         },
         bevy_noodle_jackdaw::model::FlowNode {
             id: "",
@@ -2753,6 +3971,7 @@ bevy_noodle_jackdaw::model::FlowNodeCatalog {
             ],
             graph: core::option::Option::None,
             samples: [],
+            axes: core::option::Option::None,
         },
         bevy_noodle_jackdaw::model::FlowNode {
             id: "",
@@ -2793,6 +4012,7 @@ bevy_noodle_jackdaw::model::FlowNodeCatalog {
             ],
             graph: core::option::Option::None,
             samples: [],
+            axes: core::option::Option::None,
         },
         bevy_noodle_jackdaw::model::FlowNode {
             id: "",
@@ -2833,6 +4053,313 @@ bevy_noodle_jackdaw::model::FlowNodeCatalog {
             ],
             graph: core::option::Option::None,
             samples: [],
+            axes: core::option::Option::None,
+        },
+        bevy_noodle_jackdaw::model::FlowNode {
+            id: "",
+            kind: "standing_jog/rm.standing.jog.l.pivot.180",
+            title: "Jog L Pivot 180",
+            position: glam::Vec2 {
+                x: 0.0,
+                y: 0.0,
+            },
+            inputs: [
+                bevy_noodle_jackdaw::model::PortDef {
+                    name: "enter",
+                    kind: bevy_noodle_jackdaw::model::PortKind::State,
+                    value: core::option::Option::None,
+                },
+                bevy_noodle_jackdaw::model::PortDef {
+                    name: "speed",
+                    kind: bevy_noodle_jackdaw::model::PortKind::Float,
+                    value: core::option::Option::Some(bevy_noodle_jackdaw::model::FlowValue::Float(1.0)),
+                },
+            ],
+            outputs: [
+                bevy_noodle_jackdaw::model::PortDef {
+                    name: "exit",
+                    kind: bevy_noodle_jackdaw::model::PortKind::State,
+                    value: core::option::Option::None,
+                },
+                bevy_noodle_jackdaw::model::PortDef {
+                    name: "time",
+                    kind: bevy_noodle_jackdaw::model::PortKind::Float,
+                    value: core::option::Option::None,
+                },
+                bevy_noodle_jackdaw::model::PortDef {
+                    name: "finished",
+                    kind: bevy_noodle_jackdaw::model::PortKind::Bool,
+                    value: core::option::Option::None,
+                },
+                bevy_noodle_jackdaw::model::PortDef {
+                    name: "turn",
+                    kind: bevy_noodle_jackdaw::model::PortKind::Float,
+                    value: core::option::Option::None,
+                },
+                bevy_noodle_jackdaw::model::PortDef {
+                    name: "turned",
+                    kind: bevy_noodle_jackdaw::model::PortKind::Float,
+                    value: core::option::Option::None,
+                },
+            ],
+            graph: core::option::Option::None,
+            samples: [],
+            axes: core::option::Option::None,
+        },
+        bevy_noodle_jackdaw::model::FlowNode {
+            id: "",
+            kind: "standing_jog/rm.standing.jog.l.pivot.90",
+            title: "Jog L Pivot 90",
+            position: glam::Vec2 {
+                x: 0.0,
+                y: 0.0,
+            },
+            inputs: [
+                bevy_noodle_jackdaw::model::PortDef {
+                    name: "enter",
+                    kind: bevy_noodle_jackdaw::model::PortKind::State,
+                    value: core::option::Option::None,
+                },
+                bevy_noodle_jackdaw::model::PortDef {
+                    name: "speed",
+                    kind: bevy_noodle_jackdaw::model::PortKind::Float,
+                    value: core::option::Option::Some(bevy_noodle_jackdaw::model::FlowValue::Float(1.0)),
+                },
+            ],
+            outputs: [
+                bevy_noodle_jackdaw::model::PortDef {
+                    name: "exit",
+                    kind: bevy_noodle_jackdaw::model::PortKind::State,
+                    value: core::option::Option::None,
+                },
+                bevy_noodle_jackdaw::model::PortDef {
+                    name: "time",
+                    kind: bevy_noodle_jackdaw::model::PortKind::Float,
+                    value: core::option::Option::None,
+                },
+                bevy_noodle_jackdaw::model::PortDef {
+                    name: "finished",
+                    kind: bevy_noodle_jackdaw::model::PortKind::Bool,
+                    value: core::option::Option::None,
+                },
+                bevy_noodle_jackdaw::model::PortDef {
+                    name: "turn",
+                    kind: bevy_noodle_jackdaw::model::PortKind::Float,
+                    value: core::option::Option::None,
+                },
+                bevy_noodle_jackdaw::model::PortDef {
+                    name: "turned",
+                    kind: bevy_noodle_jackdaw::model::PortKind::Float,
+                    value: core::option::Option::None,
+                },
+            ],
+            graph: core::option::Option::None,
+            samples: [],
+            axes: core::option::Option::None,
+        },
+        bevy_noodle_jackdaw::model::FlowNode {
+            id: "",
+            kind: "standing_jog/rm.standing.jog.l.turn.90",
+            title: "Jog L Turn 90",
+            position: glam::Vec2 {
+                x: 0.0,
+                y: 0.0,
+            },
+            inputs: [
+                bevy_noodle_jackdaw::model::PortDef {
+                    name: "enter",
+                    kind: bevy_noodle_jackdaw::model::PortKind::State,
+                    value: core::option::Option::None,
+                },
+                bevy_noodle_jackdaw::model::PortDef {
+                    name: "speed",
+                    kind: bevy_noodle_jackdaw::model::PortKind::Float,
+                    value: core::option::Option::Some(bevy_noodle_jackdaw::model::FlowValue::Float(1.0)),
+                },
+            ],
+            outputs: [
+                bevy_noodle_jackdaw::model::PortDef {
+                    name: "exit",
+                    kind: bevy_noodle_jackdaw::model::PortKind::State,
+                    value: core::option::Option::None,
+                },
+                bevy_noodle_jackdaw::model::PortDef {
+                    name: "time",
+                    kind: bevy_noodle_jackdaw::model::PortKind::Float,
+                    value: core::option::Option::None,
+                },
+                bevy_noodle_jackdaw::model::PortDef {
+                    name: "finished",
+                    kind: bevy_noodle_jackdaw::model::PortKind::Bool,
+                    value: core::option::Option::None,
+                },
+                bevy_noodle_jackdaw::model::PortDef {
+                    name: "turn",
+                    kind: bevy_noodle_jackdaw::model::PortKind::Float,
+                    value: core::option::Option::None,
+                },
+                bevy_noodle_jackdaw::model::PortDef {
+                    name: "turned",
+                    kind: bevy_noodle_jackdaw::model::PortKind::Float,
+                    value: core::option::Option::None,
+                },
+            ],
+            graph: core::option::Option::None,
+            samples: [],
+            axes: core::option::Option::None,
+        },
+        bevy_noodle_jackdaw::model::FlowNode {
+            id: "",
+            kind: "standing_jog/rm.standing.jog.r.pivot.180",
+            title: "Jog R Pivot 180",
+            position: glam::Vec2 {
+                x: 0.0,
+                y: 0.0,
+            },
+            inputs: [
+                bevy_noodle_jackdaw::model::PortDef {
+                    name: "enter",
+                    kind: bevy_noodle_jackdaw::model::PortKind::State,
+                    value: core::option::Option::None,
+                },
+                bevy_noodle_jackdaw::model::PortDef {
+                    name: "speed",
+                    kind: bevy_noodle_jackdaw::model::PortKind::Float,
+                    value: core::option::Option::Some(bevy_noodle_jackdaw::model::FlowValue::Float(1.0)),
+                },
+            ],
+            outputs: [
+                bevy_noodle_jackdaw::model::PortDef {
+                    name: "exit",
+                    kind: bevy_noodle_jackdaw::model::PortKind::State,
+                    value: core::option::Option::None,
+                },
+                bevy_noodle_jackdaw::model::PortDef {
+                    name: "time",
+                    kind: bevy_noodle_jackdaw::model::PortKind::Float,
+                    value: core::option::Option::None,
+                },
+                bevy_noodle_jackdaw::model::PortDef {
+                    name: "finished",
+                    kind: bevy_noodle_jackdaw::model::PortKind::Bool,
+                    value: core::option::Option::None,
+                },
+                bevy_noodle_jackdaw::model::PortDef {
+                    name: "turn",
+                    kind: bevy_noodle_jackdaw::model::PortKind::Float,
+                    value: core::option::Option::None,
+                },
+                bevy_noodle_jackdaw::model::PortDef {
+                    name: "turned",
+                    kind: bevy_noodle_jackdaw::model::PortKind::Float,
+                    value: core::option::Option::None,
+                },
+            ],
+            graph: core::option::Option::None,
+            samples: [],
+            axes: core::option::Option::None,
+        },
+        bevy_noodle_jackdaw::model::FlowNode {
+            id: "",
+            kind: "standing_jog/rm.standing.jog.r.pivot.90",
+            title: "Jog R Pivot 90",
+            position: glam::Vec2 {
+                x: 0.0,
+                y: 0.0,
+            },
+            inputs: [
+                bevy_noodle_jackdaw::model::PortDef {
+                    name: "enter",
+                    kind: bevy_noodle_jackdaw::model::PortKind::State,
+                    value: core::option::Option::None,
+                },
+                bevy_noodle_jackdaw::model::PortDef {
+                    name: "speed",
+                    kind: bevy_noodle_jackdaw::model::PortKind::Float,
+                    value: core::option::Option::Some(bevy_noodle_jackdaw::model::FlowValue::Float(1.0)),
+                },
+            ],
+            outputs: [
+                bevy_noodle_jackdaw::model::PortDef {
+                    name: "exit",
+                    kind: bevy_noodle_jackdaw::model::PortKind::State,
+                    value: core::option::Option::None,
+                },
+                bevy_noodle_jackdaw::model::PortDef {
+                    name: "time",
+                    kind: bevy_noodle_jackdaw::model::PortKind::Float,
+                    value: core::option::Option::None,
+                },
+                bevy_noodle_jackdaw::model::PortDef {
+                    name: "finished",
+                    kind: bevy_noodle_jackdaw::model::PortKind::Bool,
+                    value: core::option::Option::None,
+                },
+                bevy_noodle_jackdaw::model::PortDef {
+                    name: "turn",
+                    kind: bevy_noodle_jackdaw::model::PortKind::Float,
+                    value: core::option::Option::None,
+                },
+                bevy_noodle_jackdaw::model::PortDef {
+                    name: "turned",
+                    kind: bevy_noodle_jackdaw::model::PortKind::Float,
+                    value: core::option::Option::None,
+                },
+            ],
+            graph: core::option::Option::None,
+            samples: [],
+            axes: core::option::Option::None,
+        },
+        bevy_noodle_jackdaw::model::FlowNode {
+            id: "",
+            kind: "standing_jog/rm.standing.jog.r.turn.90",
+            title: "Jog R Turn 90",
+            position: glam::Vec2 {
+                x: 0.0,
+                y: 0.0,
+            },
+            inputs: [
+                bevy_noodle_jackdaw::model::PortDef {
+                    name: "enter",
+                    kind: bevy_noodle_jackdaw::model::PortKind::State,
+                    value: core::option::Option::None,
+                },
+                bevy_noodle_jackdaw::model::PortDef {
+                    name: "speed",
+                    kind: bevy_noodle_jackdaw::model::PortKind::Float,
+                    value: core::option::Option::Some(bevy_noodle_jackdaw::model::FlowValue::Float(1.0)),
+                },
+            ],
+            outputs: [
+                bevy_noodle_jackdaw::model::PortDef {
+                    name: "exit",
+                    kind: bevy_noodle_jackdaw::model::PortKind::State,
+                    value: core::option::Option::None,
+                },
+                bevy_noodle_jackdaw::model::PortDef {
+                    name: "time",
+                    kind: bevy_noodle_jackdaw::model::PortKind::Float,
+                    value: core::option::Option::None,
+                },
+                bevy_noodle_jackdaw::model::PortDef {
+                    name: "finished",
+                    kind: bevy_noodle_jackdaw::model::PortKind::Bool,
+                    value: core::option::Option::None,
+                },
+                bevy_noodle_jackdaw::model::PortDef {
+                    name: "turn",
+                    kind: bevy_noodle_jackdaw::model::PortKind::Float,
+                    value: core::option::Option::None,
+                },
+                bevy_noodle_jackdaw::model::PortDef {
+                    name: "turned",
+                    kind: bevy_noodle_jackdaw::model::PortKind::Float,
+                    value: core::option::Option::None,
+                },
+            ],
+            graph: core::option::Option::None,
+            samples: [],
+            axes: core::option::Option::None,
         },
         bevy_noodle_jackdaw::model::FlowNode {
             id: "",
@@ -2873,6 +4400,7 @@ bevy_noodle_jackdaw::model::FlowNodeCatalog {
             ],
             graph: core::option::Option::None,
             samples: [],
+            axes: core::option::Option::None,
         },
         bevy_noodle_jackdaw::model::FlowNode {
             id: "",
@@ -2913,6 +4441,7 @@ bevy_noodle_jackdaw::model::FlowNodeCatalog {
             ],
             graph: core::option::Option::None,
             samples: [],
+            axes: core::option::Option::None,
         },
         bevy_noodle_jackdaw::model::FlowNode {
             id: "",
@@ -2953,6 +4482,7 @@ bevy_noodle_jackdaw::model::FlowNodeCatalog {
             ],
             graph: core::option::Option::None,
             samples: [],
+            axes: core::option::Option::None,
         },
         bevy_noodle_jackdaw::model::FlowNode {
             id: "",
@@ -2993,6 +4523,7 @@ bevy_noodle_jackdaw::model::FlowNodeCatalog {
             ],
             graph: core::option::Option::None,
             samples: [],
+            axes: core::option::Option::None,
         },
         bevy_noodle_jackdaw::model::FlowNode {
             id: "",
@@ -3033,6 +4564,7 @@ bevy_noodle_jackdaw::model::FlowNodeCatalog {
             ],
             graph: core::option::Option::None,
             samples: [],
+            axes: core::option::Option::None,
         },
         bevy_noodle_jackdaw::model::FlowNode {
             id: "",
@@ -3073,6 +4605,7 @@ bevy_noodle_jackdaw::model::FlowNodeCatalog {
             ],
             graph: core::option::Option::None,
             samples: [],
+            axes: core::option::Option::None,
         },
         bevy_noodle_jackdaw::model::FlowNode {
             id: "",
@@ -3113,6 +4646,7 @@ bevy_noodle_jackdaw::model::FlowNodeCatalog {
             ],
             graph: core::option::Option::None,
             samples: [],
+            axes: core::option::Option::None,
         },
         bevy_noodle_jackdaw::model::FlowNode {
             id: "",
@@ -3153,6 +4687,7 @@ bevy_noodle_jackdaw::model::FlowNodeCatalog {
             ],
             graph: core::option::Option::None,
             samples: [],
+            axes: core::option::Option::None,
         },
         bevy_noodle_jackdaw::model::FlowNode {
             id: "",
@@ -3193,6 +4728,7 @@ bevy_noodle_jackdaw::model::FlowNodeCatalog {
             ],
             graph: core::option::Option::None,
             samples: [],
+            axes: core::option::Option::None,
         },
         bevy_noodle_jackdaw::model::FlowNode {
             id: "",
@@ -3233,6 +4769,7 @@ bevy_noodle_jackdaw::model::FlowNodeCatalog {
             ],
             graph: core::option::Option::None,
             samples: [],
+            axes: core::option::Option::None,
         },
         bevy_noodle_jackdaw::model::FlowNode {
             id: "",
@@ -3273,6 +4810,7 @@ bevy_noodle_jackdaw::model::FlowNodeCatalog {
             ],
             graph: core::option::Option::None,
             samples: [],
+            axes: core::option::Option::None,
         },
         bevy_noodle_jackdaw::model::FlowNode {
             id: "",
@@ -3313,6 +4851,7 @@ bevy_noodle_jackdaw::model::FlowNodeCatalog {
             ],
             graph: core::option::Option::None,
             samples: [],
+            axes: core::option::Option::None,
         },
         bevy_noodle_jackdaw::model::FlowNode {
             id: "",
@@ -3353,6 +4892,7 @@ bevy_noodle_jackdaw::model::FlowNodeCatalog {
             ],
             graph: core::option::Option::None,
             samples: [],
+            axes: core::option::Option::None,
         },
         bevy_noodle_jackdaw::model::FlowNode {
             id: "",
@@ -3393,6 +4933,7 @@ bevy_noodle_jackdaw::model::FlowNodeCatalog {
             ],
             graph: core::option::Option::None,
             samples: [],
+            axes: core::option::Option::None,
         },
         bevy_noodle_jackdaw::model::FlowNode {
             id: "",
@@ -3433,6 +4974,7 @@ bevy_noodle_jackdaw::model::FlowNodeCatalog {
             ],
             graph: core::option::Option::None,
             samples: [],
+            axes: core::option::Option::None,
         },
         bevy_noodle_jackdaw::model::FlowNode {
             id: "",
@@ -3473,6 +5015,7 @@ bevy_noodle_jackdaw::model::FlowNodeCatalog {
             ],
             graph: core::option::Option::None,
             samples: [],
+            axes: core::option::Option::None,
         },
         bevy_noodle_jackdaw::model::FlowNode {
             id: "",
@@ -3513,6 +5056,7 @@ bevy_noodle_jackdaw::model::FlowNodeCatalog {
             ],
             graph: core::option::Option::None,
             samples: [],
+            axes: core::option::Option::None,
         },
         bevy_noodle_jackdaw::model::FlowNode {
             id: "",
@@ -3553,6 +5097,7 @@ bevy_noodle_jackdaw::model::FlowNodeCatalog {
             ],
             graph: core::option::Option::None,
             samples: [],
+            axes: core::option::Option::None,
         },
         bevy_noodle_jackdaw::model::FlowNode {
             id: "",
@@ -3593,6 +5138,7 @@ bevy_noodle_jackdaw::model::FlowNodeCatalog {
             ],
             graph: core::option::Option::None,
             samples: [],
+            axes: core::option::Option::None,
         },
         bevy_noodle_jackdaw::model::FlowNode {
             id: "",
@@ -3633,6 +5179,415 @@ bevy_noodle_jackdaw::model::FlowNodeCatalog {
             ],
             graph: core::option::Option::None,
             samples: [],
+            axes: core::option::Option::None,
+        },
+        bevy_noodle_jackdaw::model::FlowNode {
+            id: "",
+            kind: "standing_turn/rm.standing.turn.l.135",
+            title: "Turn L 135",
+            position: glam::Vec2 {
+                x: 0.0,
+                y: 0.0,
+            },
+            inputs: [
+                bevy_noodle_jackdaw::model::PortDef {
+                    name: "enter",
+                    kind: bevy_noodle_jackdaw::model::PortKind::State,
+                    value: core::option::Option::None,
+                },
+                bevy_noodle_jackdaw::model::PortDef {
+                    name: "speed",
+                    kind: bevy_noodle_jackdaw::model::PortKind::Float,
+                    value: core::option::Option::Some(bevy_noodle_jackdaw::model::FlowValue::Float(1.0)),
+                },
+            ],
+            outputs: [
+                bevy_noodle_jackdaw::model::PortDef {
+                    name: "exit",
+                    kind: bevy_noodle_jackdaw::model::PortKind::State,
+                    value: core::option::Option::None,
+                },
+                bevy_noodle_jackdaw::model::PortDef {
+                    name: "time",
+                    kind: bevy_noodle_jackdaw::model::PortKind::Float,
+                    value: core::option::Option::None,
+                },
+                bevy_noodle_jackdaw::model::PortDef {
+                    name: "finished",
+                    kind: bevy_noodle_jackdaw::model::PortKind::Bool,
+                    value: core::option::Option::None,
+                },
+                bevy_noodle_jackdaw::model::PortDef {
+                    name: "turn",
+                    kind: bevy_noodle_jackdaw::model::PortKind::Float,
+                    value: core::option::Option::None,
+                },
+                bevy_noodle_jackdaw::model::PortDef {
+                    name: "turned",
+                    kind: bevy_noodle_jackdaw::model::PortKind::Float,
+                    value: core::option::Option::None,
+                },
+            ],
+            graph: core::option::Option::None,
+            samples: [],
+            axes: core::option::Option::None,
+        },
+        bevy_noodle_jackdaw::model::FlowNode {
+            id: "",
+            kind: "standing_turn/rm.standing.turn.l.180",
+            title: "Turn L 180",
+            position: glam::Vec2 {
+                x: 0.0,
+                y: 0.0,
+            },
+            inputs: [
+                bevy_noodle_jackdaw::model::PortDef {
+                    name: "enter",
+                    kind: bevy_noodle_jackdaw::model::PortKind::State,
+                    value: core::option::Option::None,
+                },
+                bevy_noodle_jackdaw::model::PortDef {
+                    name: "speed",
+                    kind: bevy_noodle_jackdaw::model::PortKind::Float,
+                    value: core::option::Option::Some(bevy_noodle_jackdaw::model::FlowValue::Float(1.0)),
+                },
+            ],
+            outputs: [
+                bevy_noodle_jackdaw::model::PortDef {
+                    name: "exit",
+                    kind: bevy_noodle_jackdaw::model::PortKind::State,
+                    value: core::option::Option::None,
+                },
+                bevy_noodle_jackdaw::model::PortDef {
+                    name: "time",
+                    kind: bevy_noodle_jackdaw::model::PortKind::Float,
+                    value: core::option::Option::None,
+                },
+                bevy_noodle_jackdaw::model::PortDef {
+                    name: "finished",
+                    kind: bevy_noodle_jackdaw::model::PortKind::Bool,
+                    value: core::option::Option::None,
+                },
+                bevy_noodle_jackdaw::model::PortDef {
+                    name: "turn",
+                    kind: bevy_noodle_jackdaw::model::PortKind::Float,
+                    value: core::option::Option::None,
+                },
+                bevy_noodle_jackdaw::model::PortDef {
+                    name: "turned",
+                    kind: bevy_noodle_jackdaw::model::PortKind::Float,
+                    value: core::option::Option::None,
+                },
+            ],
+            graph: core::option::Option::None,
+            samples: [],
+            axes: core::option::Option::None,
+        },
+        bevy_noodle_jackdaw::model::FlowNode {
+            id: "",
+            kind: "standing_turn/rm.standing.turn.l.45",
+            title: "Turn L 45",
+            position: glam::Vec2 {
+                x: 0.0,
+                y: 0.0,
+            },
+            inputs: [
+                bevy_noodle_jackdaw::model::PortDef {
+                    name: "enter",
+                    kind: bevy_noodle_jackdaw::model::PortKind::State,
+                    value: core::option::Option::None,
+                },
+                bevy_noodle_jackdaw::model::PortDef {
+                    name: "speed",
+                    kind: bevy_noodle_jackdaw::model::PortKind::Float,
+                    value: core::option::Option::Some(bevy_noodle_jackdaw::model::FlowValue::Float(1.0)),
+                },
+            ],
+            outputs: [
+                bevy_noodle_jackdaw::model::PortDef {
+                    name: "exit",
+                    kind: bevy_noodle_jackdaw::model::PortKind::State,
+                    value: core::option::Option::None,
+                },
+                bevy_noodle_jackdaw::model::PortDef {
+                    name: "time",
+                    kind: bevy_noodle_jackdaw::model::PortKind::Float,
+                    value: core::option::Option::None,
+                },
+                bevy_noodle_jackdaw::model::PortDef {
+                    name: "finished",
+                    kind: bevy_noodle_jackdaw::model::PortKind::Bool,
+                    value: core::option::Option::None,
+                },
+                bevy_noodle_jackdaw::model::PortDef {
+                    name: "turn",
+                    kind: bevy_noodle_jackdaw::model::PortKind::Float,
+                    value: core::option::Option::None,
+                },
+                bevy_noodle_jackdaw::model::PortDef {
+                    name: "turned",
+                    kind: bevy_noodle_jackdaw::model::PortKind::Float,
+                    value: core::option::Option::None,
+                },
+            ],
+            graph: core::option::Option::None,
+            samples: [],
+            axes: core::option::Option::None,
+        },
+        bevy_noodle_jackdaw::model::FlowNode {
+            id: "",
+            kind: "standing_turn/rm.standing.turn.l.90",
+            title: "Turn L 90",
+            position: glam::Vec2 {
+                x: 0.0,
+                y: 0.0,
+            },
+            inputs: [
+                bevy_noodle_jackdaw::model::PortDef {
+                    name: "enter",
+                    kind: bevy_noodle_jackdaw::model::PortKind::State,
+                    value: core::option::Option::None,
+                },
+                bevy_noodle_jackdaw::model::PortDef {
+                    name: "speed",
+                    kind: bevy_noodle_jackdaw::model::PortKind::Float,
+                    value: core::option::Option::Some(bevy_noodle_jackdaw::model::FlowValue::Float(1.0)),
+                },
+            ],
+            outputs: [
+                bevy_noodle_jackdaw::model::PortDef {
+                    name: "exit",
+                    kind: bevy_noodle_jackdaw::model::PortKind::State,
+                    value: core::option::Option::None,
+                },
+                bevy_noodle_jackdaw::model::PortDef {
+                    name: "time",
+                    kind: bevy_noodle_jackdaw::model::PortKind::Float,
+                    value: core::option::Option::None,
+                },
+                bevy_noodle_jackdaw::model::PortDef {
+                    name: "finished",
+                    kind: bevy_noodle_jackdaw::model::PortKind::Bool,
+                    value: core::option::Option::None,
+                },
+                bevy_noodle_jackdaw::model::PortDef {
+                    name: "turn",
+                    kind: bevy_noodle_jackdaw::model::PortKind::Float,
+                    value: core::option::Option::None,
+                },
+                bevy_noodle_jackdaw::model::PortDef {
+                    name: "turned",
+                    kind: bevy_noodle_jackdaw::model::PortKind::Float,
+                    value: core::option::Option::None,
+                },
+            ],
+            graph: core::option::Option::None,
+            samples: [],
+            axes: core::option::Option::None,
+        },
+        bevy_noodle_jackdaw::model::FlowNode {
+            id: "",
+            kind: "standing_turn/rm.standing.turn.r.135",
+            title: "Turn R 135",
+            position: glam::Vec2 {
+                x: 0.0,
+                y: 0.0,
+            },
+            inputs: [
+                bevy_noodle_jackdaw::model::PortDef {
+                    name: "enter",
+                    kind: bevy_noodle_jackdaw::model::PortKind::State,
+                    value: core::option::Option::None,
+                },
+                bevy_noodle_jackdaw::model::PortDef {
+                    name: "speed",
+                    kind: bevy_noodle_jackdaw::model::PortKind::Float,
+                    value: core::option::Option::Some(bevy_noodle_jackdaw::model::FlowValue::Float(1.0)),
+                },
+            ],
+            outputs: [
+                bevy_noodle_jackdaw::model::PortDef {
+                    name: "exit",
+                    kind: bevy_noodle_jackdaw::model::PortKind::State,
+                    value: core::option::Option::None,
+                },
+                bevy_noodle_jackdaw::model::PortDef {
+                    name: "time",
+                    kind: bevy_noodle_jackdaw::model::PortKind::Float,
+                    value: core::option::Option::None,
+                },
+                bevy_noodle_jackdaw::model::PortDef {
+                    name: "finished",
+                    kind: bevy_noodle_jackdaw::model::PortKind::Bool,
+                    value: core::option::Option::None,
+                },
+                bevy_noodle_jackdaw::model::PortDef {
+                    name: "turn",
+                    kind: bevy_noodle_jackdaw::model::PortKind::Float,
+                    value: core::option::Option::None,
+                },
+                bevy_noodle_jackdaw::model::PortDef {
+                    name: "turned",
+                    kind: bevy_noodle_jackdaw::model::PortKind::Float,
+                    value: core::option::Option::None,
+                },
+            ],
+            graph: core::option::Option::None,
+            samples: [],
+            axes: core::option::Option::None,
+        },
+        bevy_noodle_jackdaw::model::FlowNode {
+            id: "",
+            kind: "standing_turn/rm.standing.turn.r.180",
+            title: "Turn R 180",
+            position: glam::Vec2 {
+                x: 0.0,
+                y: 0.0,
+            },
+            inputs: [
+                bevy_noodle_jackdaw::model::PortDef {
+                    name: "enter",
+                    kind: bevy_noodle_jackdaw::model::PortKind::State,
+                    value: core::option::Option::None,
+                },
+                bevy_noodle_jackdaw::model::PortDef {
+                    name: "speed",
+                    kind: bevy_noodle_jackdaw::model::PortKind::Float,
+                    value: core::option::Option::Some(bevy_noodle_jackdaw::model::FlowValue::Float(1.0)),
+                },
+            ],
+            outputs: [
+                bevy_noodle_jackdaw::model::PortDef {
+                    name: "exit",
+                    kind: bevy_noodle_jackdaw::model::PortKind::State,
+                    value: core::option::Option::None,
+                },
+                bevy_noodle_jackdaw::model::PortDef {
+                    name: "time",
+                    kind: bevy_noodle_jackdaw::model::PortKind::Float,
+                    value: core::option::Option::None,
+                },
+                bevy_noodle_jackdaw::model::PortDef {
+                    name: "finished",
+                    kind: bevy_noodle_jackdaw::model::PortKind::Bool,
+                    value: core::option::Option::None,
+                },
+                bevy_noodle_jackdaw::model::PortDef {
+                    name: "turn",
+                    kind: bevy_noodle_jackdaw::model::PortKind::Float,
+                    value: core::option::Option::None,
+                },
+                bevy_noodle_jackdaw::model::PortDef {
+                    name: "turned",
+                    kind: bevy_noodle_jackdaw::model::PortKind::Float,
+                    value: core::option::Option::None,
+                },
+            ],
+            graph: core::option::Option::None,
+            samples: [],
+            axes: core::option::Option::None,
+        },
+        bevy_noodle_jackdaw::model::FlowNode {
+            id: "",
+            kind: "standing_turn/rm.standing.turn.r.45",
+            title: "Turn R 45",
+            position: glam::Vec2 {
+                x: 0.0,
+                y: 0.0,
+            },
+            inputs: [
+                bevy_noodle_jackdaw::model::PortDef {
+                    name: "enter",
+                    kind: bevy_noodle_jackdaw::model::PortKind::State,
+                    value: core::option::Option::None,
+                },
+                bevy_noodle_jackdaw::model::PortDef {
+                    name: "speed",
+                    kind: bevy_noodle_jackdaw::model::PortKind::Float,
+                    value: core::option::Option::Some(bevy_noodle_jackdaw::model::FlowValue::Float(1.0)),
+                },
+            ],
+            outputs: [
+                bevy_noodle_jackdaw::model::PortDef {
+                    name: "exit",
+                    kind: bevy_noodle_jackdaw::model::PortKind::State,
+                    value: core::option::Option::None,
+                },
+                bevy_noodle_jackdaw::model::PortDef {
+                    name: "time",
+                    kind: bevy_noodle_jackdaw::model::PortKind::Float,
+                    value: core::option::Option::None,
+                },
+                bevy_noodle_jackdaw::model::PortDef {
+                    name: "finished",
+                    kind: bevy_noodle_jackdaw::model::PortKind::Bool,
+                    value: core::option::Option::None,
+                },
+                bevy_noodle_jackdaw::model::PortDef {
+                    name: "turn",
+                    kind: bevy_noodle_jackdaw::model::PortKind::Float,
+                    value: core::option::Option::None,
+                },
+                bevy_noodle_jackdaw::model::PortDef {
+                    name: "turned",
+                    kind: bevy_noodle_jackdaw::model::PortKind::Float,
+                    value: core::option::Option::None,
+                },
+            ],
+            graph: core::option::Option::None,
+            samples: [],
+            axes: core::option::Option::None,
+        },
+        bevy_noodle_jackdaw::model::FlowNode {
+            id: "",
+            kind: "standing_turn/rm.standing.turn.r.90",
+            title: "Turn R 90",
+            position: glam::Vec2 {
+                x: 0.0,
+                y: 0.0,
+            },
+            inputs: [
+                bevy_noodle_jackdaw::model::PortDef {
+                    name: "enter",
+                    kind: bevy_noodle_jackdaw::model::PortKind::State,
+                    value: core::option::Option::None,
+                },
+                bevy_noodle_jackdaw::model::PortDef {
+                    name: "speed",
+                    kind: bevy_noodle_jackdaw::model::PortKind::Float,
+                    value: core::option::Option::Some(bevy_noodle_jackdaw::model::FlowValue::Float(1.0)),
+                },
+            ],
+            outputs: [
+                bevy_noodle_jackdaw::model::PortDef {
+                    name: "exit",
+                    kind: bevy_noodle_jackdaw::model::PortKind::State,
+                    value: core::option::Option::None,
+                },
+                bevy_noodle_jackdaw::model::PortDef {
+                    name: "time",
+                    kind: bevy_noodle_jackdaw::model::PortKind::Float,
+                    value: core::option::Option::None,
+                },
+                bevy_noodle_jackdaw::model::PortDef {
+                    name: "finished",
+                    kind: bevy_noodle_jackdaw::model::PortKind::Bool,
+                    value: core::option::Option::None,
+                },
+                bevy_noodle_jackdaw::model::PortDef {
+                    name: "turn",
+                    kind: bevy_noodle_jackdaw::model::PortKind::Float,
+                    value: core::option::Option::None,
+                },
+                bevy_noodle_jackdaw::model::PortDef {
+                    name: "turned",
+                    kind: bevy_noodle_jackdaw::model::PortKind::Float,
+                    value: core::option::Option::None,
+                },
+            ],
+            graph: core::option::Option::None,
+            samples: [],
+            axes: core::option::Option::None,
         },
         bevy_noodle_jackdaw::model::FlowNode {
             id: "",
@@ -3673,6 +5628,7 @@ bevy_noodle_jackdaw::model::FlowNodeCatalog {
             ],
             graph: core::option::Option::None,
             samples: [],
+            axes: core::option::Option::None,
         },
         bevy_noodle_jackdaw::model::FlowNode {
             id: "",
@@ -3713,6 +5669,7 @@ bevy_noodle_jackdaw::model::FlowNodeCatalog {
             ],
             graph: core::option::Option::None,
             samples: [],
+            axes: core::option::Option::None,
         },
         bevy_noodle_jackdaw::model::FlowNode {
             id: "",
@@ -3753,6 +5710,7 @@ bevy_noodle_jackdaw::model::FlowNodeCatalog {
             ],
             graph: core::option::Option::None,
             samples: [],
+            axes: core::option::Option::None,
         },
         bevy_noodle_jackdaw::model::FlowNode {
             id: "",
@@ -3793,6 +5751,7 @@ bevy_noodle_jackdaw::model::FlowNodeCatalog {
             ],
             graph: core::option::Option::None,
             samples: [],
+            axes: core::option::Option::None,
         },
         bevy_noodle_jackdaw::model::FlowNode {
             id: "",
@@ -3833,6 +5792,7 @@ bevy_noodle_jackdaw::model::FlowNodeCatalog {
             ],
             graph: core::option::Option::None,
             samples: [],
+            axes: core::option::Option::None,
         },
         bevy_noodle_jackdaw::model::FlowNode {
             id: "",
@@ -3873,6 +5833,7 @@ bevy_noodle_jackdaw::model::FlowNodeCatalog {
             ],
             graph: core::option::Option::None,
             samples: [],
+            axes: core::option::Option::None,
         },
         bevy_noodle_jackdaw::model::FlowNode {
             id: "",
@@ -3913,6 +5874,7 @@ bevy_noodle_jackdaw::model::FlowNodeCatalog {
             ],
             graph: core::option::Option::None,
             samples: [],
+            axes: core::option::Option::None,
         },
         bevy_noodle_jackdaw::model::FlowNode {
             id: "",
@@ -3953,6 +5915,7 @@ bevy_noodle_jackdaw::model::FlowNodeCatalog {
             ],
             graph: core::option::Option::None,
             samples: [],
+            axes: core::option::Option::None,
         },
         bevy_noodle_jackdaw::model::FlowNode {
             id: "",
@@ -3993,6 +5956,7 @@ bevy_noodle_jackdaw::model::FlowNodeCatalog {
             ],
             graph: core::option::Option::None,
             samples: [],
+            axes: core::option::Option::None,
         },
         bevy_noodle_jackdaw::model::FlowNode {
             id: "",
@@ -4033,6 +5997,343 @@ bevy_noodle_jackdaw::model::FlowNodeCatalog {
             ],
             graph: core::option::Option::None,
             samples: [],
+            axes: core::option::Option::None,
+        },
+        bevy_noodle_jackdaw::model::FlowNode {
+            id: "",
+            kind: "standing_walk/rm.standing.walk.l.pivot.180",
+            title: "Walk L Pivot 180",
+            position: glam::Vec2 {
+                x: 0.0,
+                y: 0.0,
+            },
+            inputs: [
+                bevy_noodle_jackdaw::model::PortDef {
+                    name: "enter",
+                    kind: bevy_noodle_jackdaw::model::PortKind::State,
+                    value: core::option::Option::None,
+                },
+                bevy_noodle_jackdaw::model::PortDef {
+                    name: "speed",
+                    kind: bevy_noodle_jackdaw::model::PortKind::Float,
+                    value: core::option::Option::Some(bevy_noodle_jackdaw::model::FlowValue::Float(1.0)),
+                },
+            ],
+            outputs: [
+                bevy_noodle_jackdaw::model::PortDef {
+                    name: "exit",
+                    kind: bevy_noodle_jackdaw::model::PortKind::State,
+                    value: core::option::Option::None,
+                },
+                bevy_noodle_jackdaw::model::PortDef {
+                    name: "time",
+                    kind: bevy_noodle_jackdaw::model::PortKind::Float,
+                    value: core::option::Option::None,
+                },
+                bevy_noodle_jackdaw::model::PortDef {
+                    name: "finished",
+                    kind: bevy_noodle_jackdaw::model::PortKind::Bool,
+                    value: core::option::Option::None,
+                },
+                bevy_noodle_jackdaw::model::PortDef {
+                    name: "turn",
+                    kind: bevy_noodle_jackdaw::model::PortKind::Float,
+                    value: core::option::Option::None,
+                },
+                bevy_noodle_jackdaw::model::PortDef {
+                    name: "turned",
+                    kind: bevy_noodle_jackdaw::model::PortKind::Float,
+                    value: core::option::Option::None,
+                },
+            ],
+            graph: core::option::Option::None,
+            samples: [],
+            axes: core::option::Option::None,
+        },
+        bevy_noodle_jackdaw::model::FlowNode {
+            id: "",
+            kind: "standing_walk/rm.standing.walk.l.pivot.90",
+            title: "Walk L Pivot 90",
+            position: glam::Vec2 {
+                x: 0.0,
+                y: 0.0,
+            },
+            inputs: [
+                bevy_noodle_jackdaw::model::PortDef {
+                    name: "enter",
+                    kind: bevy_noodle_jackdaw::model::PortKind::State,
+                    value: core::option::Option::None,
+                },
+                bevy_noodle_jackdaw::model::PortDef {
+                    name: "speed",
+                    kind: bevy_noodle_jackdaw::model::PortKind::Float,
+                    value: core::option::Option::Some(bevy_noodle_jackdaw::model::FlowValue::Float(1.0)),
+                },
+            ],
+            outputs: [
+                bevy_noodle_jackdaw::model::PortDef {
+                    name: "exit",
+                    kind: bevy_noodle_jackdaw::model::PortKind::State,
+                    value: core::option::Option::None,
+                },
+                bevy_noodle_jackdaw::model::PortDef {
+                    name: "time",
+                    kind: bevy_noodle_jackdaw::model::PortKind::Float,
+                    value: core::option::Option::None,
+                },
+                bevy_noodle_jackdaw::model::PortDef {
+                    name: "finished",
+                    kind: bevy_noodle_jackdaw::model::PortKind::Bool,
+                    value: core::option::Option::None,
+                },
+                bevy_noodle_jackdaw::model::PortDef {
+                    name: "turn",
+                    kind: bevy_noodle_jackdaw::model::PortKind::Float,
+                    value: core::option::Option::None,
+                },
+                bevy_noodle_jackdaw::model::PortDef {
+                    name: "turned",
+                    kind: bevy_noodle_jackdaw::model::PortKind::Float,
+                    value: core::option::Option::None,
+                },
+            ],
+            graph: core::option::Option::None,
+            samples: [],
+            axes: core::option::Option::None,
+        },
+        bevy_noodle_jackdaw::model::FlowNode {
+            id: "",
+            kind: "standing_walk/rm.standing.walk.l.turn.90",
+            title: "Walk L Turn 90",
+            position: glam::Vec2 {
+                x: 0.0,
+                y: 0.0,
+            },
+            inputs: [
+                bevy_noodle_jackdaw::model::PortDef {
+                    name: "enter",
+                    kind: bevy_noodle_jackdaw::model::PortKind::State,
+                    value: core::option::Option::None,
+                },
+                bevy_noodle_jackdaw::model::PortDef {
+                    name: "speed",
+                    kind: bevy_noodle_jackdaw::model::PortKind::Float,
+                    value: core::option::Option::Some(bevy_noodle_jackdaw::model::FlowValue::Float(1.0)),
+                },
+            ],
+            outputs: [
+                bevy_noodle_jackdaw::model::PortDef {
+                    name: "exit",
+                    kind: bevy_noodle_jackdaw::model::PortKind::State,
+                    value: core::option::Option::None,
+                },
+                bevy_noodle_jackdaw::model::PortDef {
+                    name: "time",
+                    kind: bevy_noodle_jackdaw::model::PortKind::Float,
+                    value: core::option::Option::None,
+                },
+                bevy_noodle_jackdaw::model::PortDef {
+                    name: "finished",
+                    kind: bevy_noodle_jackdaw::model::PortKind::Bool,
+                    value: core::option::Option::None,
+                },
+                bevy_noodle_jackdaw::model::PortDef {
+                    name: "turn",
+                    kind: bevy_noodle_jackdaw::model::PortKind::Float,
+                    value: core::option::Option::None,
+                },
+                bevy_noodle_jackdaw::model::PortDef {
+                    name: "turned",
+                    kind: bevy_noodle_jackdaw::model::PortKind::Float,
+                    value: core::option::Option::None,
+                },
+            ],
+            graph: core::option::Option::None,
+            samples: [],
+            axes: core::option::Option::None,
+        },
+        bevy_noodle_jackdaw::model::FlowNode {
+            id: "",
+            kind: "standing_walk/rm.standing.walk.r.pivot.180",
+            title: "Walk R Pivot 180",
+            position: glam::Vec2 {
+                x: 0.0,
+                y: 0.0,
+            },
+            inputs: [
+                bevy_noodle_jackdaw::model::PortDef {
+                    name: "enter",
+                    kind: bevy_noodle_jackdaw::model::PortKind::State,
+                    value: core::option::Option::None,
+                },
+                bevy_noodle_jackdaw::model::PortDef {
+                    name: "speed",
+                    kind: bevy_noodle_jackdaw::model::PortKind::Float,
+                    value: core::option::Option::Some(bevy_noodle_jackdaw::model::FlowValue::Float(1.0)),
+                },
+            ],
+            outputs: [
+                bevy_noodle_jackdaw::model::PortDef {
+                    name: "exit",
+                    kind: bevy_noodle_jackdaw::model::PortKind::State,
+                    value: core::option::Option::None,
+                },
+                bevy_noodle_jackdaw::model::PortDef {
+                    name: "time",
+                    kind: bevy_noodle_jackdaw::model::PortKind::Float,
+                    value: core::option::Option::None,
+                },
+                bevy_noodle_jackdaw::model::PortDef {
+                    name: "finished",
+                    kind: bevy_noodle_jackdaw::model::PortKind::Bool,
+                    value: core::option::Option::None,
+                },
+                bevy_noodle_jackdaw::model::PortDef {
+                    name: "turn",
+                    kind: bevy_noodle_jackdaw::model::PortKind::Float,
+                    value: core::option::Option::None,
+                },
+                bevy_noodle_jackdaw::model::PortDef {
+                    name: "turned",
+                    kind: bevy_noodle_jackdaw::model::PortKind::Float,
+                    value: core::option::Option::None,
+                },
+            ],
+            graph: core::option::Option::None,
+            samples: [],
+            axes: core::option::Option::None,
+        },
+        bevy_noodle_jackdaw::model::FlowNode {
+            id: "",
+            kind: "standing_walk/rm.standing.walk.r.pivot.90",
+            title: "Walk R Pivot 90",
+            position: glam::Vec2 {
+                x: 0.0,
+                y: 0.0,
+            },
+            inputs: [
+                bevy_noodle_jackdaw::model::PortDef {
+                    name: "enter",
+                    kind: bevy_noodle_jackdaw::model::PortKind::State,
+                    value: core::option::Option::None,
+                },
+                bevy_noodle_jackdaw::model::PortDef {
+                    name: "speed",
+                    kind: bevy_noodle_jackdaw::model::PortKind::Float,
+                    value: core::option::Option::Some(bevy_noodle_jackdaw::model::FlowValue::Float(1.0)),
+                },
+            ],
+            outputs: [
+                bevy_noodle_jackdaw::model::PortDef {
+                    name: "exit",
+                    kind: bevy_noodle_jackdaw::model::PortKind::State,
+                    value: core::option::Option::None,
+                },
+                bevy_noodle_jackdaw::model::PortDef {
+                    name: "time",
+                    kind: bevy_noodle_jackdaw::model::PortKind::Float,
+                    value: core::option::Option::None,
+                },
+                bevy_noodle_jackdaw::model::PortDef {
+                    name: "finished",
+                    kind: bevy_noodle_jackdaw::model::PortKind::Bool,
+                    value: core::option::Option::None,
+                },
+                bevy_noodle_jackdaw::model::PortDef {
+                    name: "turn",
+                    kind: bevy_noodle_jackdaw::model::PortKind::Float,
+                    value: core::option::Option::None,
+                },
+                bevy_noodle_jackdaw::model::PortDef {
+                    name: "turned",
+                    kind: bevy_noodle_jackdaw::model::PortKind::Float,
+                    value: core::option::Option::None,
+                },
+            ],
+            graph: core::option::Option::None,
+            samples: [],
+            axes: core::option::Option::None,
+        },
+        bevy_noodle_jackdaw::model::FlowNode {
+            id: "",
+            kind: "standing_walk/rm.standing.walk.r.turn.90",
+            title: "Walk R Turn 90",
+            position: glam::Vec2 {
+                x: 0.0,
+                y: 0.0,
+            },
+            inputs: [
+                bevy_noodle_jackdaw::model::PortDef {
+                    name: "enter",
+                    kind: bevy_noodle_jackdaw::model::PortKind::State,
+                    value: core::option::Option::None,
+                },
+                bevy_noodle_jackdaw::model::PortDef {
+                    name: "speed",
+                    kind: bevy_noodle_jackdaw::model::PortKind::Float,
+                    value: core::option::Option::Some(bevy_noodle_jackdaw::model::FlowValue::Float(1.0)),
+                },
+            ],
+            outputs: [
+                bevy_noodle_jackdaw::model::PortDef {
+                    name: "exit",
+                    kind: bevy_noodle_jackdaw::model::PortKind::State,
+                    value: core::option::Option::None,
+                },
+                bevy_noodle_jackdaw::model::PortDef {
+                    name: "time",
+                    kind: bevy_noodle_jackdaw::model::PortKind::Float,
+                    value: core::option::Option::None,
+                },
+                bevy_noodle_jackdaw::model::PortDef {
+                    name: "finished",
+                    kind: bevy_noodle_jackdaw::model::PortKind::Bool,
+                    value: core::option::Option::None,
+                },
+                bevy_noodle_jackdaw::model::PortDef {
+                    name: "turn",
+                    kind: bevy_noodle_jackdaw::model::PortKind::Float,
+                    value: core::option::Option::None,
+                },
+                bevy_noodle_jackdaw::model::PortDef {
+                    name: "turned",
+                    kind: bevy_noodle_jackdaw::model::PortKind::Float,
+                    value: core::option::Option::None,
+                },
+            ],
+            graph: core::option::Option::None,
+            samples: [],
+            axes: core::option::Option::None,
+        },
+        bevy_noodle_jackdaw::model::FlowNode {
+            id: "",
+            kind: "tnua/local_velocity",
+            title: "Tnua Local Velocity",
+            position: glam::Vec2 {
+                x: 0.0,
+                y: 0.0,
+            },
+            inputs: [],
+            outputs: [
+                bevy_noodle_jackdaw::model::PortDef {
+                    name: "x",
+                    kind: bevy_noodle_jackdaw::model::PortKind::Float,
+                    value: core::option::Option::None,
+                },
+                bevy_noodle_jackdaw::model::PortDef {
+                    name: "y",
+                    kind: bevy_noodle_jackdaw::model::PortKind::Float,
+                    value: core::option::Option::None,
+                },
+                bevy_noodle_jackdaw::model::PortDef {
+                    name: "vector",
+                    kind: bevy_noodle_jackdaw::model::PortKind::Vec2,
+                    value: core::option::Option::None,
+                },
+            ],
+            graph: core::option::Option::None,
+            samples: [],
+            axes: core::option::Option::None,
         },
         bevy_noodle_jackdaw::model::FlowNode {
             id: "",
@@ -4062,6 +6363,7 @@ bevy_noodle_jackdaw::model::FlowNodeCatalog {
             ],
             graph: core::option::Option::None,
             samples: [],
+            axes: core::option::Option::None,
         },
         bevy_noodle_jackdaw::model::FlowNode {
             id: "",
@@ -4086,6 +6388,7 @@ bevy_noodle_jackdaw::model::FlowNodeCatalog {
             outputs: [],
             graph: core::option::Option::None,
             samples: [],
+            axes: core::option::Option::None,
         },
     ],
     arrows: [
@@ -4225,6 +6528,66 @@ bevy_noodle_jackdaw::model::FlowNodeCatalog {
                 },
             },
             bevy_noodle_jackdaw::blend::PreviewClip {
+                kind: "crouching_jog/rm.crouching.jog.l.pivot.180",
+                library: "animations/yummy/locomotion.glb",
+                animation: "rm.crouching.jog.l.pivot.180",
+                duration: 1.6332999467849731,
+                sync: bevy_noodle_jackdaw::blend::SyncCycles {
+                    cycles: 1.0,
+                    offset: 0.0,
+                },
+            },
+            bevy_noodle_jackdaw::blend::PreviewClip {
+                kind: "crouching_jog/rm.crouching.jog.l.pivot.90",
+                library: "animations/yummy/locomotion.glb",
+                animation: "rm.crouching.jog.l.pivot.90",
+                duration: 2.299999952316284,
+                sync: bevy_noodle_jackdaw::blend::SyncCycles {
+                    cycles: 1.0,
+                    offset: 0.0,
+                },
+            },
+            bevy_noodle_jackdaw::blend::PreviewClip {
+                kind: "crouching_jog/rm.crouching.jog.l.turn.90",
+                library: "animations/yummy/locomotion.glb",
+                animation: "rm.crouching.jog.l.turn.90",
+                duration: 1.2999999523162842,
+                sync: bevy_noodle_jackdaw::blend::SyncCycles {
+                    cycles: 1.0,
+                    offset: 0.0,
+                },
+            },
+            bevy_noodle_jackdaw::blend::PreviewClip {
+                kind: "crouching_jog/rm.crouching.jog.r.pivot.180",
+                library: "animations/yummy/locomotion.glb",
+                animation: "rm.crouching.jog.r.pivot.180",
+                duration: 1.899999976158142,
+                sync: bevy_noodle_jackdaw::blend::SyncCycles {
+                    cycles: 1.0,
+                    offset: 0.0,
+                },
+            },
+            bevy_noodle_jackdaw::blend::PreviewClip {
+                kind: "crouching_jog/rm.crouching.jog.r.pivot.90",
+                library: "animations/yummy/locomotion.glb",
+                animation: "rm.crouching.jog.r.pivot.90",
+                duration: 2.1666998863220215,
+                sync: bevy_noodle_jackdaw::blend::SyncCycles {
+                    cycles: 1.0,
+                    offset: 0.0,
+                },
+            },
+            bevy_noodle_jackdaw::blend::PreviewClip {
+                kind: "crouching_jog/rm.crouching.jog.r.turn.90",
+                library: "animations/yummy/locomotion.glb",
+                animation: "rm.crouching.jog.r.turn.90",
+                duration: 1.7000000476837158,
+                sync: bevy_noodle_jackdaw::blend::SyncCycles {
+                    cycles: 1.0,
+                    offset: 0.0,
+                },
+            },
+            bevy_noodle_jackdaw::blend::PreviewClip {
                 kind: "crouching_transitions/ip.crouching.trans.jog2walk.lf",
                 library: "animations/yummy/locomotion.glb",
                 animation: "ip.crouching.trans.jog2walk.lf",
@@ -4269,6 +6632,86 @@ bevy_noodle_jackdaw::model::FlowNodeCatalog {
                 library: "animations/yummy/locomotion.glb",
                 animation: "ip.trans.crouchtostand",
                 duration: 1.233299970626831,
+                sync: bevy_noodle_jackdaw::blend::SyncCycles {
+                    cycles: 1.0,
+                    offset: 0.0,
+                },
+            },
+            bevy_noodle_jackdaw::blend::PreviewClip {
+                kind: "crouching_turn/rm.crouching.turn.l.90",
+                library: "animations/yummy/locomotion.glb",
+                animation: "rm.crouching.turn.l.90",
+                duration: 2.8666999340057373,
+                sync: bevy_noodle_jackdaw::blend::SyncCycles {
+                    cycles: 1.0,
+                    offset: 0.0,
+                },
+            },
+            bevy_noodle_jackdaw::blend::PreviewClip {
+                kind: "crouching_turn/rm.crouching.turn.r.135",
+                library: "animations/yummy/locomotion.glb",
+                animation: "rm.crouching.turn.r.135",
+                duration: 2.733299970626831,
+                sync: bevy_noodle_jackdaw::blend::SyncCycles {
+                    cycles: 1.0,
+                    offset: 0.0,
+                },
+            },
+            bevy_noodle_jackdaw::blend::PreviewClip {
+                kind: "crouching_turn/rm.crouching.turn.r.180",
+                library: "animations/yummy/locomotion.glb",
+                animation: "rm.crouching.turn.r.180",
+                duration: 2.733299970626831,
+                sync: bevy_noodle_jackdaw::blend::SyncCycles {
+                    cycles: 1.0,
+                    offset: 0.0,
+                },
+            },
+            bevy_noodle_jackdaw::blend::PreviewClip {
+                kind: "crouching_turn/rm.crouching.turn.r.45",
+                library: "animations/yummy/locomotion.glb",
+                animation: "rm.crouching.turn.r.45",
+                duration: 2.266700029373169,
+                sync: bevy_noodle_jackdaw::blend::SyncCycles {
+                    cycles: 1.0,
+                    offset: 0.0,
+                },
+            },
+            bevy_noodle_jackdaw::blend::PreviewClip {
+                kind: "crouching_turn/rm.crouching.turn.r.90",
+                library: "animations/yummy/locomotion.glb",
+                animation: "rm.crouching.turn.r.90",
+                duration: 2.266700029373169,
+                sync: bevy_noodle_jackdaw::blend::SyncCycles {
+                    cycles: 1.0,
+                    offset: 0.0,
+                },
+            },
+            bevy_noodle_jackdaw::blend::PreviewClip {
+                kind: "crouching_turn/rm.crouching.turn.l.135",
+                library: "animations/yummy/locomotion.glb",
+                animation: "rm.crouching.turn.l.135",
+                duration: 2.8666999340057373,
+                sync: bevy_noodle_jackdaw::blend::SyncCycles {
+                    cycles: 1.0,
+                    offset: 0.0,
+                },
+            },
+            bevy_noodle_jackdaw::blend::PreviewClip {
+                kind: "crouching_turn/rm.crouching.turn.l.180",
+                library: "animations/yummy/locomotion.glb",
+                animation: "rm.crouching.turn.l.180",
+                duration: 2.4667000770568848,
+                sync: bevy_noodle_jackdaw::blend::SyncCycles {
+                    cycles: 1.0,
+                    offset: 0.0,
+                },
+            },
+            bevy_noodle_jackdaw::blend::PreviewClip {
+                kind: "crouching_turn/rm.crouching.turn.l.45",
+                library: "animations/yummy/locomotion.glb",
+                animation: "rm.crouching.turn.l.45",
+                duration: 2.799999952316284,
                 sync: bevy_noodle_jackdaw::blend::SyncCycles {
                     cycles: 1.0,
                     offset: 0.0,
@@ -4415,6 +6858,66 @@ bevy_noodle_jackdaw::model::FlowNodeCatalog {
                 },
             },
             bevy_noodle_jackdaw::blend::PreviewClip {
+                kind: "crouching_walk/rm.crouching.walk.l.pivot.180",
+                library: "animations/yummy/locomotion.glb",
+                animation: "rm.crouching.walk.l.pivot.180",
+                duration: 2.5999999046325684,
+                sync: bevy_noodle_jackdaw::blend::SyncCycles {
+                    cycles: 1.0,
+                    offset: 0.0,
+                },
+            },
+            bevy_noodle_jackdaw::blend::PreviewClip {
+                kind: "crouching_walk/rm.crouching.walk.l.pivot.90",
+                library: "animations/yummy/locomotion.glb",
+                animation: "rm.crouching.walk.l.pivot.90",
+                duration: 2.0332999229431152,
+                sync: bevy_noodle_jackdaw::blend::SyncCycles {
+                    cycles: 1.0,
+                    offset: 0.0,
+                },
+            },
+            bevy_noodle_jackdaw::blend::PreviewClip {
+                kind: "crouching_walk/rm.crouching.walk.l.turn.90",
+                library: "animations/yummy/locomotion.glb",
+                animation: "rm.crouching.walk.l.turn.90",
+                duration: 2.4667000770568848,
+                sync: bevy_noodle_jackdaw::blend::SyncCycles {
+                    cycles: 1.0,
+                    offset: 0.0,
+                },
+            },
+            bevy_noodle_jackdaw::blend::PreviewClip {
+                kind: "crouching_walk/rm.crouching.walk.r.pivot.180",
+                library: "animations/yummy/locomotion.glb",
+                animation: "rm.crouching.walk.r.pivot.180",
+                duration: 2.733299970626831,
+                sync: bevy_noodle_jackdaw::blend::SyncCycles {
+                    cycles: 1.0,
+                    offset: 0.0,
+                },
+            },
+            bevy_noodle_jackdaw::blend::PreviewClip {
+                kind: "crouching_walk/rm.crouching.walk.r.pivot.90",
+                library: "animations/yummy/locomotion.glb",
+                animation: "rm.crouching.walk.r.pivot.90",
+                duration: 1.833299994468689,
+                sync: bevy_noodle_jackdaw::blend::SyncCycles {
+                    cycles: 1.0,
+                    offset: 0.0,
+                },
+            },
+            bevy_noodle_jackdaw::blend::PreviewClip {
+                kind: "crouching_walk/rm.crouching.walk.r.turn.90",
+                library: "animations/yummy/locomotion.glb",
+                animation: "rm.crouching.walk.r.turn.90",
+                duration: 2.5,
+                sync: bevy_noodle_jackdaw::blend::SyncCycles {
+                    cycles: 1.0,
+                    offset: 0.0,
+                },
+            },
+            bevy_noodle_jackdaw::blend::PreviewClip {
                 kind: "standing_idle/ip.standing.idle.01",
                 library: "animations/yummy/locomotion.glb",
                 animation: "ip.standing.idle.01",
@@ -4470,8 +6973,8 @@ bevy_noodle_jackdaw::model::FlowNodeCatalog {
                 animation: "ip.standing.jog.b",
                 duration: 1.733299970626831,
                 sync: bevy_noodle_jackdaw::blend::SyncCycles {
-                    cycles: 1.0,
-                    offset: 0.0,
+                    cycles: 2.0,
+                    offset: 0.24500000476837158,
                 },
             },
             bevy_noodle_jackdaw::blend::PreviewClip {
@@ -4480,8 +6983,8 @@ bevy_noodle_jackdaw::model::FlowNodeCatalog {
                 animation: "ip.standing.jog.bl",
                 duration: 1.733299970626831,
                 sync: bevy_noodle_jackdaw::blend::SyncCycles {
-                    cycles: 1.0,
-                    offset: 0.0,
+                    cycles: 2.0,
+                    offset: 0.24500000476837158,
                 },
             },
             bevy_noodle_jackdaw::blend::PreviewClip {
@@ -4490,8 +6993,8 @@ bevy_noodle_jackdaw::model::FlowNodeCatalog {
                 animation: "ip.standing.jog.br",
                 duration: 1.733299970626831,
                 sync: bevy_noodle_jackdaw::blend::SyncCycles {
-                    cycles: 1.0,
-                    offset: 0.0,
+                    cycles: 2.0,
+                    offset: 0.24500000476837158,
                 },
             },
             bevy_noodle_jackdaw::blend::PreviewClip {
@@ -4550,8 +7053,8 @@ bevy_noodle_jackdaw::model::FlowNodeCatalog {
                 animation: "ip.standing.jog.fl",
                 duration: 1.733299970626831,
                 sync: bevy_noodle_jackdaw::blend::SyncCycles {
-                    cycles: 1.0,
-                    offset: 0.0,
+                    cycles: 2.0,
+                    offset: 0.2150000035762787,
                 },
             },
             bevy_noodle_jackdaw::blend::PreviewClip {
@@ -4560,8 +7063,8 @@ bevy_noodle_jackdaw::model::FlowNodeCatalog {
                 animation: "ip.standing.jog.fr",
                 duration: 1.733299970626831,
                 sync: bevy_noodle_jackdaw::blend::SyncCycles {
-                    cycles: 1.0,
-                    offset: 0.0,
+                    cycles: 2.0,
+                    offset: 0.2150000035762787,
                 },
             },
             bevy_noodle_jackdaw::blend::PreviewClip {
@@ -4630,8 +7133,8 @@ bevy_noodle_jackdaw::model::FlowNodeCatalog {
                 animation: "ip.standing.jog.l",
                 duration: 1.600000023841858,
                 sync: bevy_noodle_jackdaw::blend::SyncCycles {
-                    cycles: 1.0,
-                    offset: 0.0,
+                    cycles: 2.0,
+                    offset: 0.21899999678134918,
                 },
             },
             bevy_noodle_jackdaw::blend::PreviewClip {
@@ -4660,8 +7163,8 @@ bevy_noodle_jackdaw::model::FlowNodeCatalog {
                 animation: "ip.standing.jog.r",
                 duration: 1.600000023841858,
                 sync: bevy_noodle_jackdaw::blend::SyncCycles {
-                    cycles: 1.0,
-                    offset: 0.0,
+                    cycles: 2.0,
+                    offset: 0.4790000021457672,
                 },
             },
             bevy_noodle_jackdaw::blend::PreviewClip {
@@ -4679,6 +7182,66 @@ bevy_noodle_jackdaw::model::FlowNodeCatalog {
                 library: "animations/yummy/locomotion.glb",
                 animation: "ip.standing.jog.r.stop",
                 duration: 1.2999999523162842,
+                sync: bevy_noodle_jackdaw::blend::SyncCycles {
+                    cycles: 1.0,
+                    offset: 0.0,
+                },
+            },
+            bevy_noodle_jackdaw::blend::PreviewClip {
+                kind: "standing_jog/rm.standing.jog.l.pivot.180",
+                library: "animations/yummy/locomotion.glb",
+                animation: "rm.standing.jog.l.pivot.180",
+                duration: 2.5,
+                sync: bevy_noodle_jackdaw::blend::SyncCycles {
+                    cycles: 1.0,
+                    offset: 0.0,
+                },
+            },
+            bevy_noodle_jackdaw::blend::PreviewClip {
+                kind: "standing_jog/rm.standing.jog.l.pivot.90",
+                library: "animations/yummy/locomotion.glb",
+                animation: "rm.standing.jog.l.pivot.90",
+                duration: 2.233299970626831,
+                sync: bevy_noodle_jackdaw::blend::SyncCycles {
+                    cycles: 1.0,
+                    offset: 0.0,
+                },
+            },
+            bevy_noodle_jackdaw::blend::PreviewClip {
+                kind: "standing_jog/rm.standing.jog.l.turn.90",
+                library: "animations/yummy/locomotion.glb",
+                animation: "rm.standing.jog.l.turn.90",
+                duration: 1.5,
+                sync: bevy_noodle_jackdaw::blend::SyncCycles {
+                    cycles: 1.0,
+                    offset: 0.0,
+                },
+            },
+            bevy_noodle_jackdaw::blend::PreviewClip {
+                kind: "standing_jog/rm.standing.jog.r.pivot.180",
+                library: "animations/yummy/locomotion.glb",
+                animation: "rm.standing.jog.r.pivot.180",
+                duration: 2.799999952316284,
+                sync: bevy_noodle_jackdaw::blend::SyncCycles {
+                    cycles: 1.0,
+                    offset: 0.0,
+                },
+            },
+            bevy_noodle_jackdaw::blend::PreviewClip {
+                kind: "standing_jog/rm.standing.jog.r.pivot.90",
+                library: "animations/yummy/locomotion.glb",
+                animation: "rm.standing.jog.r.pivot.90",
+                duration: 2.5,
+                sync: bevy_noodle_jackdaw::blend::SyncCycles {
+                    cycles: 1.0,
+                    offset: 0.0,
+                },
+            },
+            bevy_noodle_jackdaw::blend::PreviewClip {
+                kind: "standing_jog/rm.standing.jog.r.turn.90",
+                library: "animations/yummy/locomotion.glb",
+                animation: "rm.standing.jog.r.turn.90",
+                duration: 1.5,
                 sync: bevy_noodle_jackdaw::blend::SyncCycles {
                     cycles: 1.0,
                     offset: 0.0,
@@ -4805,6 +7368,86 @@ bevy_noodle_jackdaw::model::FlowNodeCatalog {
                 },
             },
             bevy_noodle_jackdaw::blend::PreviewClip {
+                kind: "standing_turn/rm.standing.turn.l.135",
+                library: "animations/yummy/locomotion.glb",
+                animation: "rm.standing.turn.l.135",
+                duration: 3.6666998863220215,
+                sync: bevy_noodle_jackdaw::blend::SyncCycles {
+                    cycles: 1.0,
+                    offset: 0.0,
+                },
+            },
+            bevy_noodle_jackdaw::blend::PreviewClip {
+                kind: "standing_turn/rm.standing.turn.l.180",
+                library: "animations/yummy/locomotion.glb",
+                animation: "rm.standing.turn.l.180",
+                duration: 3.5999999046325684,
+                sync: bevy_noodle_jackdaw::blend::SyncCycles {
+                    cycles: 1.0,
+                    offset: 0.0,
+                },
+            },
+            bevy_noodle_jackdaw::blend::PreviewClip {
+                kind: "standing_turn/rm.standing.turn.l.45",
+                library: "animations/yummy/locomotion.glb",
+                animation: "rm.standing.turn.l.45",
+                duration: 2.8333001136779785,
+                sync: bevy_noodle_jackdaw::blend::SyncCycles {
+                    cycles: 1.0,
+                    offset: 0.0,
+                },
+            },
+            bevy_noodle_jackdaw::blend::PreviewClip {
+                kind: "standing_turn/rm.standing.turn.l.90",
+                library: "animations/yummy/locomotion.glb",
+                animation: "rm.standing.turn.l.90",
+                duration: 3.4000000953674316,
+                sync: bevy_noodle_jackdaw::blend::SyncCycles {
+                    cycles: 1.0,
+                    offset: 0.0,
+                },
+            },
+            bevy_noodle_jackdaw::blend::PreviewClip {
+                kind: "standing_turn/rm.standing.turn.r.135",
+                library: "animations/yummy/locomotion.glb",
+                animation: "rm.standing.turn.r.135",
+                duration: 5.099999904632568,
+                sync: bevy_noodle_jackdaw::blend::SyncCycles {
+                    cycles: 1.0,
+                    offset: 0.0,
+                },
+            },
+            bevy_noodle_jackdaw::blend::PreviewClip {
+                kind: "standing_turn/rm.standing.turn.r.180",
+                library: "animations/yummy/locomotion.glb",
+                animation: "rm.standing.turn.r.180",
+                duration: 4.866700172424316,
+                sync: bevy_noodle_jackdaw::blend::SyncCycles {
+                    cycles: 1.0,
+                    offset: 0.0,
+                },
+            },
+            bevy_noodle_jackdaw::blend::PreviewClip {
+                kind: "standing_turn/rm.standing.turn.r.45",
+                library: "animations/yummy/locomotion.glb",
+                animation: "rm.standing.turn.r.45",
+                duration: 2.799999952316284,
+                sync: bevy_noodle_jackdaw::blend::SyncCycles {
+                    cycles: 1.0,
+                    offset: 0.0,
+                },
+            },
+            bevy_noodle_jackdaw::blend::PreviewClip {
+                kind: "standing_turn/rm.standing.turn.r.90",
+                library: "animations/yummy/locomotion.glb",
+                animation: "rm.standing.turn.r.90",
+                duration: 2.8666999340057373,
+                sync: bevy_noodle_jackdaw::blend::SyncCycles {
+                    cycles: 1.0,
+                    offset: 0.0,
+                },
+            },
+            bevy_noodle_jackdaw::blend::PreviewClip {
                 kind: "standing_jump/ip.standing.jump.end",
                 library: "animations/yummy/locomotion.glb",
                 animation: "ip.standing.jump.end",
@@ -4840,8 +7483,8 @@ bevy_noodle_jackdaw::model::FlowNodeCatalog {
                 animation: "ip.standing.walk.b",
                 duration: 2.0,
                 sync: bevy_noodle_jackdaw::blend::SyncCycles {
-                    cycles: 1.0,
-                    offset: 0.0,
+                    cycles: 2.0,
+                    offset: 0.4580000042915344,
                 },
             },
             bevy_noodle_jackdaw::blend::PreviewClip {
@@ -4850,8 +7493,8 @@ bevy_noodle_jackdaw::model::FlowNodeCatalog {
                 animation: "ip.standing.walk.bl",
                 duration: 2.0,
                 sync: bevy_noodle_jackdaw::blend::SyncCycles {
-                    cycles: 1.0,
-                    offset: 0.0,
+                    cycles: 2.0,
+                    offset: 0.4580000042915344,
                 },
             },
             bevy_noodle_jackdaw::blend::PreviewClip {
@@ -4860,8 +7503,8 @@ bevy_noodle_jackdaw::model::FlowNodeCatalog {
                 animation: "ip.standing.walk.br",
                 duration: 2.0,
                 sync: bevy_noodle_jackdaw::blend::SyncCycles {
-                    cycles: 1.0,
-                    offset: 0.0,
+                    cycles: 2.0,
+                    offset: 0.4580000042915344,
                 },
             },
             bevy_noodle_jackdaw::blend::PreviewClip {
@@ -4900,8 +7543,8 @@ bevy_noodle_jackdaw::model::FlowNodeCatalog {
                 animation: "ip.standing.walk.fl",
                 duration: 2.0,
                 sync: bevy_noodle_jackdaw::blend::SyncCycles {
-                    cycles: 1.0,
-                    offset: 0.0,
+                    cycles: 2.0,
+                    offset: 0.48500001430511475,
                 },
             },
             bevy_noodle_jackdaw::blend::PreviewClip {
@@ -4910,8 +7553,8 @@ bevy_noodle_jackdaw::model::FlowNodeCatalog {
                 animation: "ip.standing.walk.fr",
                 duration: 2.0,
                 sync: bevy_noodle_jackdaw::blend::SyncCycles {
-                    cycles: 1.0,
-                    offset: 0.0,
+                    cycles: 2.0,
+                    offset: 0.48500001430511475,
                 },
             },
             bevy_noodle_jackdaw::blend::PreviewClip {
@@ -4920,8 +7563,8 @@ bevy_noodle_jackdaw::model::FlowNodeCatalog {
                 animation: "ip.standing.walk.l",
                 duration: 3.200000047683716,
                 sync: bevy_noodle_jackdaw::blend::SyncCycles {
-                    cycles: 1.0,
-                    offset: 0.0,
+                    cycles: 3.0,
+                    offset: 0.024000000208616257,
                 },
             },
             bevy_noodle_jackdaw::blend::PreviewClip {
@@ -4929,6 +7572,66 @@ bevy_noodle_jackdaw::model::FlowNodeCatalog {
                 library: "animations/yummy/locomotion.glb",
                 animation: "ip.standing.walk.r",
                 duration: 3.200000047683716,
+                sync: bevy_noodle_jackdaw::blend::SyncCycles {
+                    cycles: 3.0,
+                    offset: 0.1889999955892563,
+                },
+            },
+            bevy_noodle_jackdaw::blend::PreviewClip {
+                kind: "standing_walk/rm.standing.walk.l.pivot.180",
+                library: "animations/yummy/locomotion.glb",
+                animation: "rm.standing.walk.l.pivot.180",
+                duration: 2.066699981689453,
+                sync: bevy_noodle_jackdaw::blend::SyncCycles {
+                    cycles: 1.0,
+                    offset: 0.0,
+                },
+            },
+            bevy_noodle_jackdaw::blend::PreviewClip {
+                kind: "standing_walk/rm.standing.walk.l.pivot.90",
+                library: "animations/yummy/locomotion.glb",
+                animation: "rm.standing.walk.l.pivot.90",
+                duration: 1.766700029373169,
+                sync: bevy_noodle_jackdaw::blend::SyncCycles {
+                    cycles: 1.0,
+                    offset: 0.0,
+                },
+            },
+            bevy_noodle_jackdaw::blend::PreviewClip {
+                kind: "standing_walk/rm.standing.walk.l.turn.90",
+                library: "animations/yummy/locomotion.glb",
+                animation: "rm.standing.walk.l.turn.90",
+                duration: 1.6332999467849731,
+                sync: bevy_noodle_jackdaw::blend::SyncCycles {
+                    cycles: 1.0,
+                    offset: 0.0,
+                },
+            },
+            bevy_noodle_jackdaw::blend::PreviewClip {
+                kind: "standing_walk/rm.standing.walk.r.pivot.180",
+                library: "animations/yummy/locomotion.glb",
+                animation: "rm.standing.walk.r.pivot.180",
+                duration: 2.1333000659942627,
+                sync: bevy_noodle_jackdaw::blend::SyncCycles {
+                    cycles: 1.0,
+                    offset: 0.0,
+                },
+            },
+            bevy_noodle_jackdaw::blend::PreviewClip {
+                kind: "standing_walk/rm.standing.walk.r.pivot.90",
+                library: "animations/yummy/locomotion.glb",
+                animation: "rm.standing.walk.r.pivot.90",
+                duration: 1.766700029373169,
+                sync: bevy_noodle_jackdaw::blend::SyncCycles {
+                    cycles: 1.0,
+                    offset: 0.0,
+                },
+            },
+            bevy_noodle_jackdaw::blend::PreviewClip {
+                kind: "standing_walk/rm.standing.walk.r.turn.90",
+                library: "animations/yummy/locomotion.glb",
+                animation: "rm.standing.walk.r.turn.90",
+                duration: 1.6332999467849731,
                 sync: bevy_noodle_jackdaw::blend::SyncCycles {
                     cycles: 1.0,
                     offset: 0.0,

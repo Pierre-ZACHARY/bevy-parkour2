@@ -17,8 +17,18 @@
 //! ```
 //!
 //! - **Entry** (`anim/entry`): the state a machine starts in.
+//! - **Facing** (`anim/facing`, [`Facing`]): how the model turns apart
+//!   from its body, holding its yaw while the character stands, and
+//!   turning back to it as a turn clip turns.
+//! - **Root Motion** (`anim/root_motion`): how far the current clip (a
+//!   turn, see [`RootMotion`]) turns in all and has turned.
+//! - **Aim Twist** (`anim/aim_twist`, [`AimTwist`]): the upper body, from
+//!   a bone up, turning toward a direction (the camera's aim).
 //! - **Clip** nodes (one kind per registered clip): playing while current;
 //!   `speed` scales it, `time` (0 to 1) and `finished` tell how far it is.
+//!   A turn, its root motion taken out of its poses ([`RootMotion`]), also
+//!   tells how far it `turn`s in all and has `turned` (degrees, left
+//!   positive).
 //! - **State Machine** (`anim/state_machine`): a state holding a machine
 //!   (its node's inner graph). Entering it enters its entry's state; while
 //!   it is current, so is one of its states.
@@ -62,10 +72,16 @@ use bevy_noodle_jackdaw::{
     FlowGraphSystems, FlowNode, FlowNodeType, FlowValue, PortKind,
 };
 
+mod facing;
 mod motion;
+mod root;
+mod twist;
 
+pub use facing::{FACING, Facing};
 pub use motion::{ClipMotion, ClipMotions};
+pub use root::{ROOT_MOTION, RootMotion};
 pub use skeleton_retarget::{RETARGETED, Retarget, Rig, SkeletonRetargetPlugin};
+pub use twist::{AIM_TWIST, AimTwist};
 
 /// Where an app keeps its characters' animation graph, under its assets.
 pub const ANIMATION_GRAPH: &str = "flow/animation.flowgraph.bsn";
@@ -106,6 +122,8 @@ pub struct Clip {
     pub duration: f32,
     /// Its steps, to play in phase with others in a blend space.
     pub sync: SyncCycles,
+    /// A turn's root motion, taken out of its poses.
+    pub root: Option<RootMotion>,
 }
 
 /// Clips on one source skeleton: a glb holding the skeleton as its first
@@ -124,6 +142,7 @@ struct RegisteredClip {
     looping: bool,
     duration: f32,
     sync: SyncCycles,
+    root: Option<RootMotion>,
 }
 
 /// Every registered clip, by node kind.
@@ -139,16 +158,22 @@ impl ClipLibraryAppExt for App {
     fn register_clip_library(&mut self, library: ClipLibrary) -> &mut Self {
         for clip in library.clips {
             let kind = clip.kind.clone();
+            let mut outputs = vec![
+                ("exit", PortKind::State),
+                ("time", PortKind::Float),
+                ("finished", PortKind::Bool),
+            ];
+            // A turn tells how far it turns, and has turned.
+            if clip.root.is_some() {
+                outputs.extend([("turn", PortKind::Float), ("turned", PortKind::Float)]);
+            }
+            let has_root = clip.root.is_some();
             self.register_flow_node(
                 FlowNodeType::compute(
                     clip.kind.clone(),
                     clip.title,
                     &[("enter", PortKind::State), ("speed", PortKind::Float)],
-                    &[
-                        ("exit", PortKind::State),
-                        ("time", PortKind::Float),
-                        ("finished", PortKind::Bool),
-                    ],
+                    &outputs,
                     move |world, entity, _| {
                         let Some(state) = world
                             .get::<AnimationState>(entity)
@@ -156,11 +181,26 @@ impl ClipLibraryAppExt for App {
                         else {
                             return Vec::new();
                         };
-                        vec![
+                        let mut values = vec![
                             FlowValue::State(true),
                             FlowValue::Float(state.time),
                             FlowValue::Bool(state.finished),
-                        ]
+                        ];
+                        if has_root {
+                            let root = world
+                                .get_resource::<ClipLibraries>()
+                                .and_then(|libraries| libraries.0.get(&kind))
+                                .and_then(|clip| clip.root.as_ref());
+                            values.extend([
+                                FlowValue::Float(
+                                    root.map_or(0.0, |root| root.total_turn().to_degrees()),
+                                ),
+                                FlowValue::Float(
+                                    root.map_or(0.0, |root| root.turn_at(state.time).to_degrees()),
+                                ),
+                            ]);
+                        }
+                        values
                     },
                 )
                 .with_default("speed", FlowValue::Float(1.0)),
@@ -187,6 +227,7 @@ impl ClipLibraryAppExt for App {
                         looping: clip.looping,
                         duration: clip.duration,
                         sync: clip.sync,
+                        root: clip.root,
                     },
                 );
         }
@@ -266,6 +307,9 @@ impl Plugin for CharacterAnimationPlugin {
             .init_asset::<ClipMotions>()
             .init_asset_loader::<motion::ClipMotionsLoader>()
             .register_flow_node(entry)
+            .register_flow_node(facing::node())
+            .register_flow_node(root::node())
+            .register_flow_node(twist::node())
             .register_flow_node(
                 FlowNodeType::compute(
                     STATE_MACHINE,
@@ -303,6 +347,16 @@ impl Plugin for CharacterAnimationPlugin {
             .add_systems(
                 FixedUpdate,
                 step_state_machines.after(FlowGraphSystems::Run),
+            )
+            // After the body's interpolation (in `RunFixedMainLoop`).
+            .add_systems(
+                PostUpdate,
+                (
+                    facing::face,
+                    twist::twist.after(skeleton_retarget::RetargetSystems),
+                )
+                    .chain()
+                    .before(TransformSystems::Propagate),
             );
     }
 }
@@ -321,6 +375,8 @@ fn start_controller(
             graph: asset_server.load(&controller.graph),
         },
         AnimationState::default(),
+        Facing::default(),
+        AimTwist::default(),
         BlendSpacePhase::default(),
         BlendSelection::default(),
     ));
@@ -380,6 +436,30 @@ fn bind_sources(world: &mut World) {
         .map(|(entity, source)| (entity, source.clone()))
         .collect();
     for (entity, mut source) in unbound {
+        // Read licensed sample data through Bevy's asset loader on every platform.
+        // Waiting here also prevents a turn starting before its curves are ready.
+        let Some(motions) = world.resource::<Assets<ClipMotions>>().get(&source.motions) else {
+            continue;
+        };
+        let roots = motions.roots().clone();
+        let missing_root = world.resource::<ClipLibraries>().0.values().any(|clip| {
+            clip.library == source.library
+                && clip
+                    .root
+                    .as_ref()
+                    .is_some_and(|root| root.turn.is_empty() && !roots.contains_key(&clip.name))
+        });
+        if missing_root {
+            warn_once!("Animation library is missing required root motion metadata");
+            continue;
+        }
+        for clip in world.resource_mut::<ClipLibraries>().0.values_mut() {
+            if clip.library == source.library
+                && let Some(root) = roots.get(&clip.name)
+            {
+                clip.root = Some(root.clone());
+            }
+        }
         let Some(gltf) = world.resource::<Assets<Gltf>>().get(&source.gltf) else {
             continue;
         };
@@ -659,7 +739,7 @@ fn step_state_machines(
                 &plays.iter().map(|p| p.weight).collect::<Vec<_>>(),
             );
             let speed = if in_blend_space {
-                playrate(node, at.x)
+                playrate(node, at)
             } else if in_select {
                 1.0
             } else {
@@ -999,5 +1079,62 @@ mod tests {
     #[test]
     fn nothing_firing_keeps_the_states() {
         assert_eq!(step(&["grounded", "walk"], &[]).0, ["grounded", "walk"]);
+    }
+
+    fn clip(kind: &str, root: Option<RootMotion>) -> Clip {
+        Clip {
+            kind: kind.into(),
+            title: kind.into(),
+            name: kind.into(),
+            looping: false,
+            duration: 1.0,
+            sync: default(),
+            root,
+        }
+    }
+
+    #[test]
+    fn turns_tell_how_far_they_turn() {
+        let mut app = App::new();
+        app.register_clip_library(ClipLibrary {
+            path: "clips.glb".into(),
+            clips: vec![
+                clip("clip/idle", None),
+                clip(
+                    "clip/turn",
+                    Some(RootMotion {
+                        turn: vec![0.0, 1.0, 2.0],
+                        travel: vec![Vec2::ZERO; 3],
+                    }),
+                ),
+            ],
+        });
+        let types = app.world().resource::<bevy_noodle_jackdaw::FlowNodeTypes>();
+        let outputs = |kind: &str| -> Vec<String> {
+            let outputs = &types.get(kind).unwrap().outputs;
+            outputs.iter().map(|port| port.name.clone()).collect()
+        };
+        assert_eq!(outputs("clip/idle"), ["exit", "time", "finished"]);
+        assert_eq!(
+            outputs("clip/turn"),
+            ["exit", "time", "finished", "turn", "turned"]
+        );
+
+        let bevy_noodle_jackdaw::NodeRun::Compute(compute) =
+            types.get("clip/turn").unwrap().run.clone()
+        else {
+            panic!("a clip computes");
+        };
+        let playing = app
+            .world_mut()
+            .spawn(AnimationState {
+                kind: "clip/turn".into(),
+                time: 0.25,
+                ..default()
+            })
+            .id();
+        let values = compute(app.world(), playing, &[]);
+        assert_eq!(values[3].as_f32(), 2.0_f32.to_degrees());
+        assert_eq!(values[4].as_f32(), 0.5_f32.to_degrees());
     }
 }

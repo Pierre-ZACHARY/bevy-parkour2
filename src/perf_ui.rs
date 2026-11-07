@@ -1,7 +1,7 @@
 //! Development overlay (iyes_perf_ui, F3): frame rate and time, entities,
-//! the process's CPU and RAM, and the player's speed. The game-specific
-//! entry lives in the binary so dx can hotpatch it, like the other game
-//! systems.
+//! process and system CPU/RAM, player speed, UTC clock and window information.
+//! The game-specific entry lives in the binary so dx can hotpatch it, like
+//! the other game systems.
 
 use avian3d::prelude::LinearVelocity;
 use bevy::{
@@ -57,7 +57,7 @@ fn spawn_overlay(mut commands: Commands) {
             fontsize_label: 14.0,
             fontsize_value: 14.0,
             background_color: Color::srgba(0.02, 0.02, 0.03, 0.8),
-            values_col_width: 100.0,
+            values_col_width: 240.0,
             ..default()
         },
         PerfUiEntryFPS {
@@ -84,6 +84,38 @@ fn spawn_overlay(mut commands: Commands) {
         },
         PerfUiPlayerSpeed {
             sort_key: 5,
+            ..default()
+        },
+        PerfUiEntryClock {
+            prefer_utc: true,
+            sort_key: 6,
+            ..default()
+        },
+        PerfUiEntryWindowMode {
+            sort_key: 7,
+            ..default()
+        },
+        PerfUiEntryWindowResolution {
+            label: "Window Size".into(),
+            physical_pixels: true,
+            display_units: true,
+            separator: " x ",
+            sort_key: 8,
+            ..default()
+        },
+        PerfUiEntryWindowPresentMode {
+            label: "Vsync".into(),
+            sort_key: 9,
+            ..default()
+        },
+        PerfUiEntrySystemCpuUsage {
+            label: "System CPU".into(),
+            sort_key: 10,
+            ..default()
+        },
+        PerfUiEntrySystemMemUsage {
+            label: "System RAM".into(),
+            sort_key: 11,
             ..default()
         },
     ));

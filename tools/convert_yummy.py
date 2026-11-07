@@ -1,16 +1,28 @@
-"""Yummy Games Core Locomotion, in-place clips, on their own skeleton.
+"""Yummy Games Core Locomotion, in-place clips and turns, on their own skeleton.
 
     "C:/Program Files/Blender Foundation/Blender 5.0/blender.exe" --background \
         --factory-startup --python tools/convert_yummy.py
 
-Reads the FBX under asset_sources/ (never written) and writes:
+Reads the FBX under private-assets/asset_sources/ (never written; the legacy
+local asset_sources/ directory is also accepted) and writes:
 
-- assets/animations/yummy/locomotion.glb: the source skeleton (UE5 Manny
+- private-assets/assets/animations/yummy/locomotion.glb: the source skeleton (UE5 Manny
   topology, no mesh) and one animation per in-place clip, named by its
   semantic id (`ip.standing.walk.f`). The game retargets them at runtime
   onto any character's skeleton, so they are stored once.
 - crates/ninja_character/src/yummy_clips.rs: the clip list the game registers
   as graph nodes.
+
+Run tools/setup_assets.ps1 afterwards to refresh the ignored runtime copy in
+assets/. Commit the GLB in the private repository and update its public gitlink.
+
+The turns are root-motion takes (`A_RM_*Turn*`, `A_RM_*Pivot*`): their
+armature object turns (in place) or travels (moving turns and pivots). That motion is taken out of the poses,
+which stay facing and standing where they started, and written beside the
+clip, per frame: how far the object has turned (`turn`, radians around +Y,
+left positive) and travelled (`travel`, metres in the start's frame, glTF
+axes). The game turns and moves the character itself and plays these
+alongside.
 
 The skeleton is glTF Y-up, +Z forward, in metres, rooted at a `manny` node.
 Each clip bakes the armature object's motion into the bones' poses (some
@@ -26,11 +38,14 @@ import sys
 import tempfile
 
 import bpy
-from mathutils import Matrix, Quaternion
+from mathutils import Matrix, Quaternion, Vector
 
 ROOT = Path(__file__).resolve().parents[1]
-SOURCE = ROOT / "asset_sources/yummy_games/CoreLocomotionAnimations/Animations"
-GLB = ROOT / "assets/animations/yummy/locomotion.glb"
+PRIVATE = ROOT / "private-assets"
+SOURCE = PRIVATE / "asset_sources/yummy_games/CoreLocomotionAnimations/Animations"
+if not SOURCE.is_dir():
+    SOURCE = ROOT / "asset_sources/yummy_games/CoreLocomotionAnimations/Animations"
+GLB = PRIVATE / "assets/animations/yummy/locomotion.glb"
 CLIPS_RS = ROOT / "crates/ninja_character/src/yummy_clips.rs"
 SKELETON_ROOT = "manny"
 # glTF Y-up to Blender Z-up; Blender -Y forward becomes glTF +Z.
@@ -45,10 +60,15 @@ DIRECTIONS = {"f", "fl", "l", "bl", "b", "br", "r", "fr", "lf", "rf"}
 
 
 def semantic_id(path):
-    """`A_IP_Standing_Walk_F.FBX` -> `ip.standing.walk.f` (the old catalog's ids)."""
+    """`A_IP_Standing_Walk_F.FBX` -> `ip.standing.walk.f` (the old catalog's ids);
+    `A_RM_Standing_Turn_L_90.FBX` -> `rm.standing.turn.l.90`."""
     tokens = path.stem.rstrip("_").split("_")
     tokens = ["Turn" if t == "Turns" else t for t in tokens]
     return ".".join(t.lower() for t in tokens[1:])
+
+
+def root_motion(path):
+    return path.stem.startswith("A_RM_")
 
 
 def category_and_title(clip_id):
@@ -164,16 +184,43 @@ def skeleton(arm, doc):
     return nodes
 
 
-def bake(arm, action, nodes, doc, data, name):
+def object_yaw(matrix):
+    """The object's turn around Blender's Z (glTF's Y), radians."""
+    x = matrix.to_3x3() @ Vector((1, 0, 0))
+    return math.atan2(x.y, x.x)
+
+
+def bake(arm, action, nodes, doc, data, name, strip_root):
+    """Bake the take; with `strip_root`, take the object's turn and horizontal
+    travel since the first frame out of the poses and return them per frame."""
     fps = bpy.context.scene.render.fps / bpy.context.scene.render.fps_base
     start, end = (int(round(f)) for f in action.frame_range)
     bones = ordered_bones(arm)
     if {b.name for b in bones} != set(nodes):
         raise ValueError("skeleton differs from the first take's")
     times, translations, rotations = [], {b.name: [] for b in bones}, {b.name: [] for b in bones}
+    root_turns, root_travels = [], []
+    first = None
     for frame in range(start, end + 1):
         bpy.context.scene.frame_set(frame)
-        models = {b.name: gltf_space(arm.matrix_world @ arm.pose.bones[b.name].matrix) for b in bones}
+        world = arm.matrix_world.copy()
+        if strip_root:
+            if first is None:
+                first = (world.translation.copy(), object_yaw(world))
+            turn = object_yaw(world) - first[1]
+            if root_turns:
+                turn = root_turns[-1] + (turn - root_turns[-1] + math.pi) % math.tau - math.pi
+            moved = world.translation - first[0]
+            moved.z = 0
+            # Back to the first frame's place and heading, about the object.
+            undo = (Matrix.Translation(first[0]) @ Matrix.Rotation(-turn, 4, "Z")
+                    @ Matrix.Translation(-(first[0] + moved)))
+            world = undo @ world
+            # Travel in the start's frame, glTF axes (Blender X, Y -> glTF X, -Z).
+            local_moved = Matrix.Rotation(-first[1], 4, "Z") @ moved
+            root_turns.append(turn)
+            root_travels.append([local_moved.x, -local_moved.y])
+        models = {b.name: gltf_space(world @ arm.pose.bones[b.name].matrix) for b in bones}
         times.append([(frame - start) / fps])
         for bone in bones:
             m = local(models, bone)
@@ -200,33 +247,48 @@ def bake(arm, action, nodes, doc, data, name):
                                               output=append_accessor(doc, data, values, kind)))
             animation["channels"].append(dict(sampler=len(animation["samplers"]) - 1,
                                               target=dict(node=index, path=path)))
+    if root_turns:
+        animation["extras"] = {"root_motion": {
+            "turn": [round(t, 4) for t in root_turns],
+            "travel": [[round(x, 4), round(z, 4)] for x, z in root_travels],
+        }}
     doc["animations"].append(animation)
-    return times[-1][0]
+    return times[-1][0], root_turns, root_travels
 
 
 def rust_list(clips):
     lines = [
         "//! Generated by `tools/convert_yummy.py`; do not edit.",
         "//!",
-        "//! The in-place clips of `assets/animations/yummy/locomotion.glb`.",
+        "//! The clips of `assets/animations/yummy/locomotion.glb`: in place, and",
+        "//! turns with the root motion taken out of them.",
+        "//! Root-motion samples are loaded from the private GLB at runtime.",
         "",
         "use super::YummyClip;",
         "",
+        "#[rustfmt::skip]",
         "pub(crate) const CLIPS: &[YummyClip] = &[",
     ]
     for clip in clips:
         lines.append(
             f'    YummyClip {{ id: "{clip["id"]}", category: "{clip["category"]}", '
             f'title: "{clip["title"]}", looping: {str(clip["looping"]).lower()}, '
-            f'duration: {clip["duration"]:.4f} }},'
+            f'duration: {clip["duration"]:.4f}, root: {str(bool(clip["turn"])).lower()} }},'
         )
     lines.append("];")
     return "\n".join(lines) + "\n"
 
 
 def main():
-    files = sorted(p for p in SOURCE.rglob("A_IP_*") if p.suffix.lower() == ".fbx"
-                   and "Climb" not in p.stem)
+    if not (PRIVATE / ".git").exists():
+        raise RuntimeError("Initialize the private-assets submodule before converting licensed assets")
+    if not SOURCE.is_dir():
+        raise FileNotFoundError("Hydrate the licensed Yummy FBX authoring sources before conversion")
+    files = sorted(p for p in SOURCE.rglob("A_*") if p.suffix.lower() == ".fbx"
+                   and (p.stem.startswith("A_IP_") and "Climb" not in p.stem
+                        or root_motion(p) and ("Turn" in p.stem or "Pivot" in p.stem)))
+    if not files:
+        raise RuntimeError("No Yummy locomotion FBX files found; no outputs were written")
     doc = {"asset": {"version": "2.0", "generator": "tools/convert_yummy.py"},
            "scene": 0, "scenes": [{"nodes": [0]}], "animations": [],
            "accessors": [], "bufferViews": []}
@@ -237,10 +299,10 @@ def main():
         if nodes is None:
             nodes = skeleton(arm, doc)
         clip_id = semantic_id(path)
-        duration = bake(arm, action, nodes, doc, data, clip_id)
+        duration, turn, travel = bake(arm, action, nodes, doc, data, clip_id, root_motion(path))
         category, title = category_and_title(clip_id)
         clips.append(dict(id=clip_id, category=category, title=title,
-                          looping=looping(path), duration=duration))
+                          looping=looping(path), duration=duration, turn=turn, travel=travel))
         print(f"CLIP {number + 1}/{len(files)} {clip_id} -> {category}: {title}", flush=True)
     if len({c["id"] for c in clips}) != len(clips):
         raise ValueError("clip id collision")

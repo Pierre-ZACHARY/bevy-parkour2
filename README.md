@@ -38,6 +38,12 @@ cover each loop; the equivalent commands, run from the project root:
 `BEVY_ASSET_ROOT` makes the game under dx read and watch `assets/` in place
 instead of the copy dx bundles next to the executable.
 
+The two CodeLLDB configs turn off lldb's GDB JIT loader
+(`settings set plugin.jit-loader.gdb.enable off`). NVIDIA's shader compiler
+registers each shader it compiles with the debugger, and lldb stopped the
+game on every one: 0 fps, with the scene never drawn. Do the same in any
+other lldb session on the game.
+
 Features:
 
 - `asset_watch` (default): `bevy/file_watcher`. Editing a file in `assets/`
@@ -95,14 +101,20 @@ are cached; rustc incremental code generation is disabled for sccache.
 
 ## Assets
 
-- `asset_sources/ida_faber/` – Ida Faber Cyber Ninja Girl "Vex" (original
+- `private-assets/asset_sources/ida_faber/` – Ida Faber Cyber Ninja Girl "Vex" (original
   downloads, copied from bevy-parkour; FBX/Unity, not loadable by Bevy).
-- `asset_sources/yummy_games/` – Yummy Games Core Locomotion Animations (FBX).
-- `assets/animations/yummy/locomotion.glb` – its 84 in-place clips on their
-  UE5 Manny skeleton (no mesh, 9 MB, Git LFS), written with the clip list
+- `private-assets/asset_sources/yummy_games/` – Yummy Games Core Locomotion Animations (FBX).
+- `assets/animations/yummy/locomotion.glb` – its 84 in-place clips and 40
+  turns (in place, moving and pivots; their root motion taken out of the
+  poses and kept as turn and travel curves in the private GLB's animation extras) on their UE5
+  Manny skeleton (no mesh, 13 MB, Git LFS), written with the clip list
   `crates/ninja_character/src/yummy_clips.rs` by `tools/convert_yummy.py`:
   `"C:/Program Files/Blender Foundation/Blender 5.0/blender.exe" --background
-  --factory-startup --python tools/convert_yummy.py`.
+  --factory-startup --python tools/convert_yummy.py`. The converter writes the GLB
+  in `private-assets/assets/animations/yummy/`; run `tools/setup_assets.ps1`
+  afterwards to refresh the ignored runtime copy. Commit the GLB privately and
+  its submodule revision publicly. Existing local `asset_sources/` downloads
+  are accepted as a read-only fallback.
 - `assets/character/ninja/outfit_01.gltf` – Ninja already converted to glTF
   by the bevy-parkour pipeline (copied as-is, binaries in Git LFS). At load,
   `crates/ninja_character` builds the hair textures' mip chain and switches the
@@ -130,7 +142,7 @@ downloads stay private and are not included in game packages.
 | Jog (held) | Left Shift | Left stick press |
 | Sprint (double tap, then hold) | Left Shift twice | Left stick press twice |
 | Aim (the character faces it) | Mouse, once the window has the cursor | Right stick |
-| Look around, keeping the aim (held) | Middle button | Right stick press |
+| Look around, keeping the aim (held; let go, the character turns to the reticle) | Middle button | Right stick press |
 | Switch to the fly camera and back | F | Select |
 | Fly: move where it looks / up / down | ZQSD / Space / Left Shift | Left stick / RT / LT |
 | Fly: faster, slower | Wheel up, down | |
@@ -163,7 +175,9 @@ The character is split from the game into three workspace crates:
   `#FlyCamera` `flow/fly_camera.flowgraph.bsn` (Fly), starting inactive.
   Their nodes' inputs hold the settings (the pivot's offset from the
   target, or from its `bone`, shoulder offset, distance, sensitivity, stick
-  speed, pitch limits, recenter time; fly speed, wheel factor, speed
+  speed, pitch limits, what letting go of a free look does:
+  `face_on_release` turns the target to the reticle, else the camera
+  recenters over the recenter time; fly speed, wheel factor, speed
   range). The target and the bone are wired in: an Entity node picks
   `Player` by name, a Skeleton node its visible skinned mesh, a Bone node
   one of its joints (both names chosen in a list). An unwired target
@@ -204,16 +218,68 @@ Entry ─▶ Grounded ▣ ── takeoff (airborne) ─▶ In the Air ▣ (Entry
 Grounded ▣:  Entry ─▶ Idle ── start (Move held) ─▶ Locomotion ◆
              Locomotion ── Move let go ─▶ Stop ◇
              Stop ── finished ─▶ Idle, or ── Move held ─▶ Locomotion
-Locomotion ◆ (Blend Space 1D on speed): Walk F 1.4 · Jog F 3.5 · Sprint 6 m/s
+             Idle ── turning (|facing| > 70) ─▶ Turn ◇
+             Turn ── finished ─▶ Idle, or ── Move held ─▶ Locomotion
+Locomotion ◆ (Blend Space 2D on the velocity as the character faces,
+       through Smooth Polar, 0.3 s):
+       Walk 1.4 and Jog 3.5 m/s each way (F FR R BR B BL L FL) · Sprint 6 ahead
 Stop ◇ (Select 2D on speed and Locomotion's phase): Walk stop · Jog stop LF / RF
        (by the foot ahead) · Sprint stop; distance ◀─ Stop Distance
+Turn ◇ (Select 2D on -facing): Turn L / R 45 · 90 · 135 · 180, each at how
+       far it turns (left positive)
+Facing (follow ◀─ speed > 0.1 or airborne; turn, turned ◀─ Root Motion;
+       time 0.3 s, max 120°) ─▶ facing
+Aim Twist (bone spine_01 to spine_05 ◀─ Skeleton; direction ◀─ Camera Aim;
+       max 60°, weight 1, time 0.15 s)
 ```
+
+The controller turns the body (to face the camera's aim); the Ninja's own
+yaw is the Facing node's (`character_animation::Facing`). Standing, it holds
+its yaw in the world as the body turns under it, so its feet stay planted,
+up to `max` degrees apart; moving or in the air, it turns back to the body
+most of the way in `time` seconds. Its `offset` output says how far apart
+they are (degrees, left positive); the top graph sets the `facing`
+variable to it.
+
+Left far behind, standing, the model turns to the body playing a turn
+clip: in Grounded, once `facing` is further than 70° either way (an Abs
+and a Greater node, the threshold set in the graph), Idle goes to the Turn
+select, which picks the turn nearest how far there is to turn (`x`, the
+negated offset: Turn L 90 for a body 100° to the left). The clips play in
+place; their root's turn, taken out of them, is kept as a curve
+(`character_animation::RootMotion`). The Root Motion node says how far the
+current clip turns in all (`turn`) and has turned (`turned`, degrees), and
+Facing turns the model back to the body in step: each frame, by the share
+of what the clip had left to turn that it turned, so the model faces the
+body as the clip's turn ends, however far apart they were when it began.
+Asked to move during the turn, it goes to Locomotion.
+
+The upper body turns on its own toward the aim: the Aim Twist node
+(`character_animation::AimTwist`) turns the bones from its `bone` up to its
+`to` (Bone nodes, picked on the Skeleton node's skeleton: the model's own
+when its `entity` is not wired) around the world's up, the turn shared
+evenly between them, after the clips and the retargeting. It turns toward
+`direction` (the Camera Aim's `forward`) from where the model faces, up to
+`max` degrees, by `weight`, most of the way in `time` seconds; the legs
+keep the clip's pose. Its `twist` output says how far (degrees, left
+positive).
 
 The top graph sets two variables from Tnua State, `airborne` and `speed`
 (the length of `velocity`, the real horizontal speed in m/s); the
 machines' conditions read them through get nodes instead of wires.
-Locomotion mixes the two clips around the speed and keeps them in phase:
-each sample says how many sync cycles (a left step then a right one) its
+Locomotion mixes the clips around Tnua Local Velocity (`x` to the
+character's right, `y` ahead: the camera turns the character, so it strafes
+and walks back) and keeps them in phase. The velocity goes through Smooth
+Polar first: Tnua turns it within a few frames, and followed as it is the
+character would leap from one clip to the next (jog ahead to jog
+ahead-right); smoothed, its direction turns and its length eases over
+about its `time` (0.3 s, set in the graph), so the clips mix over a
+moment. Slower than a walk, it mixes the
+walks on their ring where the velocity points, slowed in proportion
+(`blend::ring_input`), never opposite walks; the jogs to the sides and back
+are slower clips than the jog ahead (2.8 and 3.1 m/s for 3.5), which they
+play at as they are. The stops are the ones ahead whichever way it went.
+Each sample says how many sync cycles (a left step then a right one) its
 clip holds and where the first starts, measured on the clips; its `phase`
 output (below 0.5: the left foot ahead) goes with the speed into Stop, a
 Select 2D: on entering it, it picks the stop clip nearest to the speed and
@@ -309,7 +375,7 @@ edit, it is never overwritten.
 
 - The crate depends on neither leafwing nor Tnua: its `leafwing` feature
   derives a node per `PlayerAction` variant (outputs by action kind), its
-  `tnua` feature adds Tnua Walk and Tnua State nodes.
+  `tnua` feature adds Tnua Walk, Tnua State and Tnua Local Velocity nodes.
 - Tab shows the graph over the game, drawn with
   [bevy_noodle](https://github.com/gold-silver-copper/bevy_noodle) 0.5
   (MIT), vendored in `crates/bevy_noodle` with routed wires added
@@ -366,7 +432,9 @@ game's runners write on the player and on the Ninja.
 Selecting a blend space node and probing its axis (click, or hover)
 previews the blend under the axis on the model the catalog names, the
 Ninja, retargeted (`crates/pose_preview`; also in `cargo run --example
-flow_graph`). `crates/bevy_parkour2_editor` is the project's own extension:
+flow_graph`). Selecting a Skeleton or Bone node shows the Ninja at rest,
+its skeleton drawn over it and the bones picked lit; Bone nodes pick from
+its bones' names. `crates/bevy_parkour2_editor` is the project's own extension:
 it adds what the editor needs to show the models as the game does, today
 the Ninja's hair fix (`crates/ninja_hair`), so Flow Graph stays generic.
 
@@ -404,11 +472,14 @@ version when it moved. A standalone `cargo check` resolves Bevy 0.20.1.
 `src/perf_ui.rs`: in the top right corner, FPS, frame time, entity count,
 the process's CPU and RAM, and the player's speed (Avian's
 `LinearVelocity`, vertical motion included: green standing, yellow at a
-jog, red at a sprint, highlighted past it). F3 hides and shows it; hidden,
-it stops updating. CPU and RAM refresh less often and read `N/A` until
+jog, red at a sprint, highlighted past it). It also shows the UTC clock
+(`HH:MM:SS`), primary window mode and size in physical pixels, Vsync
+(the detailed presentation mode), and system CPU and RAM usage as percentages.
+F3 hides and shows it; hidden, it stops updating.
+CPU and RAM refresh less often and read `N/A` until
 known; Bevy has no such diagnostics under `--features dynamic`. The
 overlay is not part of the scene: it outlives scene reloads and follows
-the active camera.
+the active camera. Window information reads `N/A` when no primary window exists.
 
 It is iyes_perf_ui 0.5.0 (Bevy 0.16) ported to Bevy 0.20.1 in
 `vendor/iyes_perf_ui` (see its `PORTING.md`). `cargo test --bin

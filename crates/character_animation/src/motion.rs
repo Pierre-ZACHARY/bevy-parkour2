@@ -15,6 +15,7 @@
 //! (`asset_server.load::<ClipMotions>(path)`): its loader claims no
 //! extension, to leave the glb's other loads to the glTF loader.
 
+use crate::RootMotion;
 use bevy::asset::io::Reader;
 use bevy::asset::{AssetLoader, LoadContext};
 use bevy::gltf::gltf::{self, Document, animation::Property, animation::util::ReadOutputs};
@@ -36,19 +37,52 @@ const STANDING: f32 = 0.1;
 
 /// Each animation's motion in a library, by its name in the glb.
 #[derive(Asset, TypePath, Clone, Debug, Default)]
-pub struct ClipMotions(HashMap<String, ClipMotion>);
+pub struct ClipMotions(HashMap<String, ClipMotion>, HashMap<String, RootMotion>);
 
 impl ClipMotions {
     /// The animations of a binary glTF, measured. None measure without the
     /// feet's balls.
-    pub fn from_glb(bytes: &[u8]) -> Result<Self, gltf::Error> {
+    pub fn from_glb(bytes: &[u8]) -> Result<Self, BevyError> {
         let glb = gltf::Gltf::from_slice(bytes)?;
         let blob = glb.blob.as_deref().unwrap_or_default();
-        Ok(Self(measure(&glb.document, blob)))
+        let mut roots = HashMap::default();
+        for animation in glb.document.animations() {
+            let Some(extras) = animation.extras() else {
+                continue;
+            };
+            let extras: serde_json::Value = serde_json::from_str(extras.get())?;
+            let Some(metadata) = extras.get("root_motion") else {
+                continue;
+            };
+            let turn: Vec<f32> = serde_json::from_value(metadata["turn"].clone())?;
+            let travel: Vec<[f32; 2]> = serde_json::from_value(metadata["travel"].clone())?;
+            if turn.is_empty()
+                || turn.len() != travel.len()
+                || !turn.iter().all(|value| value.is_finite())
+                || !travel.iter().flatten().all(|value| value.is_finite())
+            {
+                return Err("invalid root motion samples".into());
+            }
+            let name = animation
+                .name()
+                .ok_or("root motion animation has no name")?;
+            roots.insert(
+                name.to_owned(),
+                RootMotion {
+                    turn,
+                    travel: travel.into_iter().map(Vec2::from_array).collect(),
+                },
+            );
+        }
+        Ok(Self(measure(&glb.document, blob), roots))
     }
 
     pub fn get(&self, animation: &str) -> Option<&ClipMotion> {
         self.0.get(animation)
+    }
+
+    pub(crate) fn roots(&self) -> &HashMap<String, RootMotion> {
+        &self.1
     }
 }
 
@@ -113,7 +147,7 @@ impl AssetLoader for ClipMotionsLoader {
     ) -> Result<ClipMotions, BevyError> {
         let mut bytes = Vec::new();
         reader.read_to_end(&mut bytes).await?;
-        Ok(ClipMotions::from_glb(&bytes)?)
+        ClipMotions::from_glb(&bytes)
     }
 }
 
@@ -342,6 +376,59 @@ fn smoothed(values: &[f32]) -> Vec<f32> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    fn synthetic_glb(root: serde_json::Value) -> Vec<u8> {
+        let document = serde_json::json!({
+            "asset": {"version": "2.0"},
+            "nodes": [{}],
+            "buffers": [{"byteLength": 40}],
+            "bufferViews": [{"buffer": 0, "byteLength": 8}, {"buffer": 0, "byteOffset": 8, "byteLength": 32}],
+            "accessors": [
+                {"bufferView": 0, "componentType": 5126, "count": 2, "type": "SCALAR", "min": [0.0], "max": [1.0]},
+                {"bufferView": 1, "componentType": 5126, "count": 2, "type": "VEC4"}
+            ],
+            "animations": [{"name": "synthetic", "channels": [{"sampler": 0, "target": {"node": 0, "path": "rotation"}}],
+                "samplers": [{"input": 0, "output": 1}], "extras": root}]
+        });
+        let mut json = serde_json::to_vec(&document).unwrap();
+        while !json.len().is_multiple_of(4) {
+            json.push(b' ');
+        }
+        let mut bytes = Vec::from(*b"glTF");
+        bytes.extend(2_u32.to_le_bytes());
+        bytes.extend((12 + 8 + json.len() as u32 + 8 + 40).to_le_bytes());
+        bytes.extend((json.len() as u32).to_le_bytes());
+        bytes.extend(*b"JSON");
+        bytes.extend(json);
+        bytes.extend(40_u32.to_le_bytes());
+        bytes.extend(*b"BIN\0");
+        for value in [0.0_f32, 1.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 1.0] {
+            bytes.extend(value.to_le_bytes());
+        }
+        bytes
+    }
+
+    #[test]
+    fn root_motion_comes_from_the_asset_instead_of_public_source() {
+        let bytes = synthetic_glb(serde_json::json!({"root_motion": {
+            "turn": [0.0, 1.0, 2.0], "travel": [[0.0, 0.0], [1.0, 0.0], [2.0, 1.0]]
+        }}));
+        let motions = ClipMotions::from_glb(&bytes).unwrap();
+        let root = &motions.roots()["synthetic"];
+        assert_eq!(root.turn_at(0.25), 0.5);
+        assert_eq!(root.total_turn(), 2.0);
+        assert_eq!(root.travel_at(1.0), Vec2::new(2.0, 1.0));
+        let absent = ClipMotions::from_glb(&synthetic_glb(serde_json::json!({}))).unwrap();
+        assert!(absent.roots().is_empty());
+    }
+
+    #[test]
+    fn mismatched_root_motion_samples_are_rejected() {
+        let bytes = synthetic_glb(serde_json::json!({"root_motion": {
+            "turn": [0.0, 1.0], "travel": [[0.0, 0.0]]
+        }}));
+        assert!(ClipMotions::from_glb(&bytes).is_err());
+    }
 
     /// One sample a step, `speed` m/s throughout.
     fn steady(speed: f32, samples: usize) -> ClipMotion {

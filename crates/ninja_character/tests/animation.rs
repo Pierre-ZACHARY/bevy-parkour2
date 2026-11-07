@@ -1,7 +1,8 @@
 //! The Ninja on a character, animated by the game's animation graph
 //! (`assets/flow/animation.flowgraph.bsn`) with Yummy clips retargeted onto
-//! it: idle standing still, walking, jogging or sprinting by its speed
-//! (a blend space), stopping (a select), falling in the air and landing.
+//! it: idle standing still, walking, jogging or sprinting by its velocity
+//! as it faces (a blend space: walks and jogs every way, the sprint
+//! ahead), stopping (a select), falling in the air and landing.
 
 use std::time::Duration;
 
@@ -11,16 +12,18 @@ use bevy::gltf::{GltfAssetLabel, GltfLoaderSettings};
 use bevy::prelude::*;
 use bevy::time::TimeUpdateStrategy;
 use bevy::world_serialization::WorldAssetRoot;
-use bevy_noodle_jackdaw::blend::{BLEND_SPACE_1D, SELECT_2D};
+use bevy_noodle_jackdaw::blend::{BLEND_SPACE_2D, SELECT_2D};
 use bevy_noodle_jackdaw::leafwing::action_kind;
+use bevy_noodle_jackdaw::nodes::{BONE, SKELETON, SMOOTH_POLAR};
 use bevy_noodle_jackdaw::{
     BlendSample, FlowGraph, FlowGraphPlayback, FlowGraphPlugin, FlowLink, FlowNode, FlowNodeTypes,
     FlowValue, FlowVariable, PortKind,
 };
 use bevy_tnua_avian3d::TnuaAvian3dPlugin;
 use character_animation::{
-    ANIMATION_GRAPH, AnimationController, AnimationState, CharacterAnimationPlugin, ClipMotions,
-    ENTRY, RETARGETED, Retarget, STATE_MACHINE, TRANSITION,
+    AIM_TWIST, ANIMATION_GRAPH, AimTwist, AnimationController, AnimationState,
+    CharacterAnimationPlugin, ClipMotions, ENTRY, FACING, Facing, RETARGETED, ROOT_MOTION,
+    Retarget, STATE_MACHINE, TRANSITION,
 };
 use character_controller::{
     CharacterController, CharacterControllerPlugin, FLOAT_HEIGHT, JOG_SPEED, MOVEMENT_GRAPH,
@@ -29,8 +32,8 @@ use character_controller::{
 use leafwing_input_manager::prelude::*;
 use ninja_character::YummyClipsPlugin;
 use ninja_character::yummy::{
-    FALL, IDLE, JOG_FORWARD, JOG_STOP_LF, JOG_STOP_RF, LAND, LIBRARY, SPRINT, SPRINT_STOP,
-    WALK_FORWARD, WALK_STOP,
+    FALL, IDLE, JOG_FORWARD, JOG_STOP_LF, JOG_STOP_RF, JOGS, LAND, LIBRARY, SPRINT, SPRINT_STOP,
+    TURNS, WALK_FORWARD, WALK_STOP, WALKS,
 };
 
 const ASSETS: &str = concat!(env!("CARGO_MANIFEST_DIR"), "/../../assets");
@@ -38,6 +41,11 @@ const ASSETS: &str = concat!(env!("CARGO_MANIFEST_DIR"), "/../../assets");
 const WALKING: f32 = 0.1;
 /// Below this length, the Move stick is let go (the Gait node's dead zone).
 const LET_GO: f32 = 0.05;
+/// How long (s) Locomotion's velocity takes to follow Tnua's.
+const SMOOTHING: f32 = 0.3;
+/// How far (degrees) the model may be left behind its body, standing,
+/// before it turns to it (a turn clip).
+const TURN_BEHIND: f32 = 70.0;
 
 /// Builds graphs from the registered node types.
 struct Nodes<'a>(&'a FlowNodeTypes);
@@ -76,11 +84,6 @@ impl Nodes<'_> {
         self.with(node, "b", FlowValue::Float(b))
     }
 
-    /// A blend space sample playing clip `kind` at speed `at`.
-    fn sample(&self, kind: &str, at: f32) -> BlendSample {
-        self.sample_2d(kind, Vec2::new(at, 0.0))
-    }
-
     /// A sample playing clip `kind` at `at`.
     fn sample_2d(&self, kind: &str, at: Vec2) -> BlendSample {
         BlendSample {
@@ -105,18 +108,49 @@ fn transition_links(
     ]
 }
 
+/// Where the `index`th of [`WALKS`] (or [`JOGS`]) goes, `speed` m/s: `x`
+/// to the character's right, `y` ahead.
+fn heading(index: usize, speed: f32) -> Vec2 {
+    let s = std::f32::consts::FRAC_1_SQRT_2;
+    let ways = [
+        (0.0, 1.0),
+        (s, s),
+        (1.0, 0.0),
+        (s, -s),
+        (0.0, -1.0),
+        (-s, -s),
+        (-1.0, 0.0),
+        (-s, s),
+    ];
+    Vec2::from(ways[index]) * speed
+}
+
 /// On the ground: idle until asked to move, then walking, jogging or
-/// sprinting by the speed (the Locomotion blend space), and once the Move
+/// sprinting by the velocity as the character faces (the Locomotion blend
+/// space: walks and jogs every way, the sprint ahead), and once the Move
 /// stick is let go, stopping by how fast it went (from a jog, on the foot
 /// ahead: the Stop select, its clip matched to how far the character has
-/// left to go) before idling again. In the air: falling, then landing. The top
-/// graph sets the `airborne` and `speed` (m/s) variables from Tnua's state;
-/// the machines read them.
+/// left to go) before idling again; idle, its model left behind its body by
+/// more than [`TURN_BEHIND`], turning to it (the Turn select, the turn
+/// clip nearest how far). In the air: falling, then landing. The top graph
+/// sets the `airborne`, `speed` (m/s) and `facing` (the Facing offset,
+/// degrees) variables; the machines read them. Its Facing holds the model's
+/// yaw while the character stands, turning back to the body as a turn clip
+/// turns (Root Motion), and follows the body while it moves or is in the
+/// air; its Aim Twist turns the upper body, spine_01 to spine_05, toward the
+/// camera's aim. Locomotion reads Tnua's local velocity, smoothed
+/// (Smooth Polar, over [`SMOOTHING`] seconds): turning from one way to the
+/// next, its clips mix over a moment rather than in a few frames.
 fn default_animation_graph(types: &FlowNodeTypes) -> FlowGraph {
     let nodes = Nodes(types);
     let airborne = FlowVariable::new("airborne", PortKind::Bool);
     let speed = FlowVariable::new("speed", PortKind::Float);
+    let facing = FlowVariable::new("facing", PortKind::Float);
     let threshold = |node: FlowNode| nodes.with(node, "b", FlowValue::Float(WALKING));
+    let bone = |id: &str, name: &str, x: f32, y: f32| {
+        let node = nodes.node(id, BONE, x, y);
+        nodes.with(node, "name", FlowValue::Text(name.into()))
+    };
     // Each stop at its gait's speed and Locomotion's phase with its foot
     // ahead (the left in the first half of the cycle); a walk's and a
     // sprint's on either foot.
@@ -131,18 +165,34 @@ fn default_animation_graph(types: &FlowNodeTypes) -> FlowGraph {
             nodes.compare("moving", "float/greater", LET_GO, 560.0, -260.0),
             nodes.node("let_go", "logic/not", 820.0, -200.0),
             speed.get_node("speed", Vec2::new(40.0, 660.0)),
+            nodes.node(
+                "velocity",
+                bevy_noodle_jackdaw::tnua::LOCAL_VELOCITY,
+                300.0,
+                480.0,
+            ),
+            nodes.with(
+                nodes.node("smooth_velocity", SMOOTH_POLAR, 580.0, 400.0),
+                "time",
+                FlowValue::Float(SMOOTHING),
+            ),
             nodes.node("stop_distance", STOP_DISTANCE, 1140.0, 760.0),
             nodes.node("idle", IDLE, 300.0, 260.0),
             nodes.transition("start", 0.2, 580.0, 40.0),
             FlowNode {
                 title: "Locomotion".into(),
-                // Each at its gait's speed.
-                samples: vec![
-                    nodes.sample(WALK_FORWARD, WALK_SPEED),
-                    nodes.sample(JOG_FORWARD, JOG_SPEED),
-                    nodes.sample(SPRINT, SPRINT_SPEED),
-                ],
-                ..nodes.node("locomotion", BLEND_SPACE_1D, 860.0, 260.0)
+                // Each at its gait's speed, its way.
+                samples: [(WALKS, WALK_SPEED), (JOGS, JOG_SPEED)]
+                    .iter()
+                    .flat_map(|(clips, speed)| {
+                        clips
+                            .iter()
+                            .enumerate()
+                            .map(|(index, kind)| nodes.sample_2d(kind, heading(index, *speed)))
+                    })
+                    .chain([nodes.sample_2d(SPRINT, Vec2::new(0.0, SPRINT_SPEED))])
+                    .collect(),
+                ..nodes.node("locomotion", BLEND_SPACE_2D, 860.0, 260.0)
             },
             nodes.transition("stopping", 0.2, 1140.0, 40.0),
             FlowNode {
@@ -159,6 +209,22 @@ fn default_animation_graph(types: &FlowNodeTypes) -> FlowGraph {
             },
             nodes.transition("stop_moving", 0.2, 1140.0, 560.0),
             nodes.transition("stop_done", 0.3, 860.0, 700.0),
+            facing.get_node("facing", Vec2::new(40.0, 1000.0)),
+            nodes.node("to_turn", "float/negate", 300.0, 1000.0),
+            nodes.node("behind_by", "float/abs", 300.0, 1140.0),
+            nodes.compare("behind", "float/greater", TURN_BEHIND, 560.0, 1140.0),
+            nodes.transition("turning", 0.2, 580.0, 860.0),
+            FlowNode {
+                title: "Turn".into(),
+                // Each at how far it turns.
+                samples: TURNS
+                    .iter()
+                    .map(|(kind, turn)| nodes.sample_2d(kind, Vec2::new(*turn, 0.0)))
+                    .collect(),
+                ..nodes.node("turn", SELECT_2D, 860.0, 1000.0)
+            },
+            nodes.transition("turn_done", 0.3, 300.0, 860.0),
+            nodes.transition("turn_moving", 0.2, 860.0, 860.0),
         ],
         links: [
             vec![
@@ -166,10 +232,16 @@ fn default_animation_graph(types: &FlowNodeTypes) -> FlowGraph {
                 FlowLink::new("move", "vector", "stick", "vector"),
                 FlowLink::new("stick", "length", "moving", "a"),
                 FlowLink::new("moving", "result", "let_go", "value"),
-                FlowLink::new("speed", "value", "locomotion", "x"),
+                FlowLink::new("velocity", "vector", "smooth_velocity", "vector"),
+                FlowLink::new("smooth_velocity", "x", "locomotion", "x"),
+                FlowLink::new("smooth_velocity", "y", "locomotion", "y"),
                 FlowLink::new("speed", "value", "stop", "x"),
                 FlowLink::new("locomotion", "phase", "stop", "y"),
                 FlowLink::new("stop_distance", "distance", "stop", "distance"),
+                FlowLink::new("facing", "value", "to_turn", "value"),
+                FlowLink::new("facing", "value", "behind_by", "value"),
+                FlowLink::new("behind_by", "result", "behind", "a"),
+                FlowLink::new("to_turn", "result", "turn", "x"),
             ],
             transition_links("idle", "start", "locomotion", ("moving", "result")).to_vec(),
             transition_links("locomotion", "stopping", "stop", ("let_go", "result")).to_vec(),
@@ -177,6 +249,11 @@ fn default_animation_graph(types: &FlowNodeTypes) -> FlowGraph {
             // it is done.
             transition_links("stop", "stop_moving", "locomotion", ("moving", "result")).to_vec(),
             transition_links("stop", "stop_done", "idle", ("stop", "finished")).to_vec(),
+            // Idle, left behind its body: turning to it, back to Idle once
+            // done, or to Locomotion if asked to move.
+            transition_links("idle", "turning", "turn", ("behind", "result")).to_vec(),
+            transition_links("turn", "turn_done", "idle", ("turn", "finished")).to_vec(),
+            transition_links("turn", "turn_moving", "locomotion", ("moving", "result")).to_vec(),
         ]
         .concat(),
         ..default()
@@ -207,6 +284,15 @@ fn default_animation_graph(types: &FlowNodeTypes) -> FlowGraph {
             nodes.node("length", "vec3/length", 300.0, 760.0),
             airborne.set_node("set_airborne", Vec2::new(560.0, 680.0)),
             speed.set_node("set_speed", Vec2::new(560.0, 800.0)),
+            nodes.node("follows", "logic/or", 1440.0, 480.0),
+            nodes.node("facing", FACING, 1700.0, 480.0),
+            nodes.node("root_motion", ROOT_MOTION, 1440.0, 300.0),
+            facing.set_node("set_facing", Vec2::new(1960.0, 480.0)),
+            nodes.node("skeleton", SKELETON, 1180.0, 760.0),
+            bone("split", "spine_01", 1440.0, 700.0),
+            bone("chest", "spine_05", 1440.0, 840.0),
+            nodes.node("aim", camera_controller::AIM, 1440.0, 980.0),
+            nodes.node("twist", AIM_TWIST, 1700.0, 760.0),
         ],
         links: [
             vec![
@@ -216,6 +302,17 @@ fn default_animation_graph(types: &FlowNodeTypes) -> FlowGraph {
                 FlowLink::new("state", "airborne", "set_airborne", "value"),
                 FlowLink::new("state", "velocity", "length", "vector"),
                 FlowLink::new("length", "length", "set_speed", "value"),
+                FlowLink::new("moving", "result", "follows", "a"),
+                FlowLink::new("airborne", "value", "follows", "b"),
+                FlowLink::new("follows", "result", "facing", "follow"),
+                FlowLink::new("root_motion", "turn", "facing", "turn"),
+                FlowLink::new("root_motion", "turned", "facing", "turned"),
+                FlowLink::new("facing", "offset", "set_facing", "value"),
+                FlowLink::new("skeleton", "skeleton", "split", "skeleton"),
+                FlowLink::new("skeleton", "skeleton", "chest", "skeleton"),
+                FlowLink::new("split", "bone", "twist", "bone"),
+                FlowLink::new("chest", "bone", "twist", "to"),
+                FlowLink::new("aim", "forward", "twist", "direction"),
             ],
             transition_links("grounded", "takeoff", "in_the_air", ("airborne", "value")).to_vec(),
             transition_links("in_the_air", "touchdown", "land", ("landed", "result")).to_vec(),
@@ -223,7 +320,7 @@ fn default_animation_graph(types: &FlowNodeTypes) -> FlowGraph {
             transition_links("land", "land_walking", "grounded", ("moving", "result")).to_vec(),
         ]
         .concat(),
-        variables: vec![airborne, speed],
+        variables: vec![airborne, speed, facing],
         ..default()
     }
 }
@@ -239,6 +336,7 @@ fn write_animation_graph() {
             bevy_noodle_jackdaw::tnua::TnuaFlowNodesPlugin::<character_controller::ControlScheme>::default(),
             bevy_noodle_jackdaw::leafwing::LeafwingFlowNodesPlugin::<PlayerAction>::default(),
             character_controller::CharacterFlowNodesPlugin,
+            camera_controller::CameraFlowNodesPlugin,
             CharacterAnimationPlugin,
             YummyClipsPlugin,
         ));
@@ -294,12 +392,18 @@ fn app() -> App {
 /// The Player and Ninja of `assets/scene.bsn`: the model's feet on the
 /// floor, turned to face where the body walks. No meshes or materials.
 fn spawn_ninja(app: &mut App) -> (Entity, Entity) {
+    spawn_ninja_with(app, RenderAssetUsages::empty())
+}
+
+/// [`spawn_ninja`], its meshes kept as `meshes` says: in the main world, its
+/// skinned meshes are there for a Skeleton node to find.
+fn spawn_ninja_with(app: &mut App, meshes: RenderAssetUsages) -> (Entity, Entity) {
     let scene = app
         .world()
         .resource::<AssetServer>()
         .load_builder()
-        .with_settings(|settings: &mut GltfLoaderSettings| {
-            settings.load_meshes = RenderAssetUsages::empty();
+        .with_settings(move |settings: &mut GltfLoaderSettings| {
+            settings.load_meshes = meshes;
             settings.load_materials = RenderAssetUsages::empty();
         })
         .load(GltfAssetLabel::Scene(0).from_asset("character/ninja/outfit_01.gltf"));
@@ -440,6 +544,278 @@ fn the_ninja_idles_then_walks_forward_on_its_feet() {
         states_until_idle(&mut app, model),
         [(IDLE_PATH.map(String::from).to_vec(), IDLE.to_owned())]
     );
+}
+
+/// Aimed ahead (-Z), the Ninja faces there whichever way it walks: to its
+/// left, back, right or ahead and right, it plays the walk that way, then
+/// stops and idles again.
+#[test]
+fn aimed_ahead_the_ninja_walks_every_way_facing_it() {
+    let mut app = app();
+    let (character, model) = spawn_ninja(&mut app);
+    app.world_mut()
+        .entity_mut(character)
+        .insert(camera_controller::CameraAim::default());
+    settle(&mut app, model);
+
+    let ways: [(&[KeyCode], &str); 4] = [
+        (&[KeyCode::KeyA], "walk l"),
+        (&[KeyCode::KeyS], "walk b"),
+        (&[KeyCode::KeyD], "walk r"),
+        (&[KeyCode::KeyW, KeyCode::KeyD], "walk fr"),
+    ];
+    for (keys, sample) in ways {
+        for key in keys {
+            key.press(app.world_mut());
+        }
+        for _ in 0..90 {
+            app.update();
+        }
+        assert_eq!(state(&app, model).path, ["grounded", "locomotion"]);
+        assert!(
+            weight(&app, model, sample) > 0.95,
+            "{sample}: {:?}",
+            state(&app, model).sample_weights
+        );
+        let forward = app
+            .world()
+            .get::<GlobalTransform>(character)
+            .unwrap()
+            .forward();
+        assert!(forward.dot(Vec3::NEG_Z) > 0.99, "faces {forward}");
+        for key in keys {
+            key.release(app.world_mut());
+        }
+        let states = states_until_idle(&mut app, model);
+        assert_eq!(
+            states.last().map(|(path, _)| &path[..]),
+            Some(&IDLE_PATH.map(String::from)[..])
+        );
+    }
+}
+
+/// The yaw (radians, left positive) `entity` faces in the world, its
+/// forward being `forward`.
+fn yaw(app: &App, entity: Entity, forward: Vec3) -> f32 {
+    let way = app
+        .world()
+        .get::<GlobalTransform>(entity)
+        .unwrap()
+        .rotation()
+        * forward;
+    way.x.atan2(way.z)
+}
+
+/// How far `a` is turned from `b`, within half a turn either way.
+fn turned(a: f32, b: f32) -> f32 {
+    use std::f32::consts::{PI, TAU};
+    (a - b + PI).rem_euclid(TAU) - PI
+}
+
+/// Standing, the Ninja holds its yaw as the aim turns the body under it,
+/// its feet planted; walking, it turns back to face where the body does.
+#[test]
+fn standing_the_ninja_holds_its_feet_as_the_body_turns() {
+    let mut app = app();
+    let (character, model) = spawn_ninja(&mut app);
+    // Aimed the way the body faces as it spawns.
+    let aim = camera_controller::CameraAim {
+        yaw: std::f32::consts::PI,
+        ..default()
+    };
+    app.world_mut().entity_mut(character).insert(aim);
+    settle(&mut app, model);
+    let feet = [
+        bone(&mut app, model, "foot_l"),
+        bone(&mut app, model, "foot_r"),
+    ];
+    let planted = feet.map(|foot| position(&app, foot));
+    let facing = yaw(&app, model, Vec3::Z);
+    let facing_body = yaw(&app, character, Vec3::NEG_Z);
+
+    let turn = 60_f32.to_radians();
+    app.world_mut()
+        .get_mut::<camera_controller::CameraAim>(character)
+        .unwrap()
+        .yaw = aim.yaw + turn;
+    for _ in 0..120 {
+        app.update();
+    }
+    let body = yaw(&app, character, Vec3::NEG_Z);
+    assert!(
+        turned(body, facing_body + turn).abs() < 0.03,
+        "the body faces {body}"
+    );
+    assert_eq!(state(&app, model).path, IDLE_PATH);
+    let held = yaw(&app, model, Vec3::Z);
+    assert!(
+        turned(held, facing).abs() < 0.01,
+        "the Ninja turned to {held}"
+    );
+    for (foot, planted) in feet.iter().zip(planted) {
+        let slid = position(&app, *foot).xz().distance(planted.xz());
+        assert!(slid < 0.03, "a foot slid {slid} m");
+    }
+    let offset = app.world().get::<Facing>(model).unwrap().offset;
+    assert!((offset + turn).abs() < 0.03, "offset {offset}");
+
+    KeyCode::KeyW.press(app.world_mut());
+    for _ in 0..60 {
+        app.update();
+    }
+    let offset = app.world().get::<Facing>(model).unwrap().offset;
+    assert!(offset.abs() < 0.02, "walking, offset {offset}");
+    let body = yaw(&app, character, Vec3::NEG_Z);
+    let model_yaw = yaw(&app, model, Vec3::Z);
+    assert!(
+        turned(model_yaw - body, facing - facing_body).abs() < 0.03,
+        "{model_yaw} for {body}"
+    );
+    KeyCode::KeyW.release(app.world_mut());
+}
+
+/// Standing, the body turned further than [`TURN_BEHIND`] from the model:
+/// the model turns to it, playing the turn clip nearest how far (Turn L 90
+/// for 100° left), back to Idle once done, facing the body.
+#[test]
+fn standing_the_ninja_turns_to_the_body_left_far_behind() {
+    let mut app = app();
+    let (character, model) = spawn_ninja(&mut app);
+    let aim = camera_controller::CameraAim {
+        yaw: std::f32::consts::PI,
+        ..default()
+    };
+    app.world_mut().entity_mut(character).insert(aim);
+    settle(&mut app, model);
+    let facing_body = yaw(&app, character, Vec3::NEG_Z);
+    let facing = yaw(&app, model, Vec3::Z);
+
+    let turn = 100_f32.to_radians();
+    app.world_mut()
+        .get_mut::<camera_controller::CameraAim>(character)
+        .unwrap()
+        .yaw = aim.yaw + turn;
+    let mut turned_with = None;
+    for _ in 0..120 {
+        app.update();
+        let state = state(&app, model);
+        if state.path == ["grounded", "turn"] {
+            turned_with = Some(state.kind);
+            break;
+        }
+    }
+    assert_eq!(
+        turned_with.as_deref(),
+        Some("standing_turn/rm.standing.turn.l.90")
+    );
+
+    let mut states = Vec::new();
+    for _ in 0..360 {
+        app.update();
+        let path = state(&app, model).path;
+        if states.last() != Some(&path) {
+            states.push(path.clone());
+        }
+        if path == IDLE_PATH {
+            break;
+        }
+    }
+    assert_eq!(
+        states,
+        [vec!["grounded", "turn"], IDLE_PATH.to_vec()]
+            .map(|path| path.into_iter().map(String::from).collect::<Vec<_>>())
+    );
+    let body = yaw(&app, character, Vec3::NEG_Z);
+    assert!(
+        turned(body, facing_body + turn).abs() < 0.03,
+        "the body faces {body}"
+    );
+    let model_yaw = yaw(&app, model, Vec3::Z);
+    assert!(
+        turned(model_yaw - body, facing - facing_body).abs() < 0.05,
+        "the Ninja faces {model_yaw} for {body}"
+    );
+    let offset = app.world().get::<Facing>(model).unwrap().offset;
+    assert!(offset.abs() < 0.05, "offset {offset}");
+}
+
+/// How far `entity` has turned around +Y since it was `before`, in the
+/// world.
+fn turned_since(app: &App, entity: Entity, before: Quat) -> f32 {
+    let now = app
+        .world()
+        .get::<GlobalTransform>(entity)
+        .unwrap()
+        .rotation();
+    let change = now * before.inverse();
+    turned(2.0 * change.y.atan2(change.w), 0.0)
+}
+
+fn rotation(app: &App, entity: Entity) -> Quat {
+    app.world()
+        .get::<GlobalTransform>(entity)
+        .unwrap()
+        .rotation()
+}
+
+/// Standing, the Ninja's upper body turns toward the camera's aim (from
+/// spine_01 up, spread to spine_05), up to its Aim Twist's max, the feet
+/// still planted.
+#[test]
+fn standing_the_ninja_turns_its_upper_body_to_the_aim() {
+    let mut app = app();
+    let (character, model) = spawn_ninja_with(&mut app, RenderAssetUsages::MAIN_WORLD);
+    let aim = camera_controller::CameraAim {
+        yaw: std::f32::consts::PI,
+        ..default()
+    };
+    app.world_mut().entity_mut(character).insert(aim);
+    settle(&mut app, model);
+    let chest = bone(&mut app, model, "spine_05");
+    let pelvis = bone(&mut app, model, "pelvis");
+    let foot = bone(&mut app, model, "foot_l");
+    let (chest_before, pelvis_before) = (rotation(&app, chest), rotation(&app, pelvis));
+    let planted = position(&app, foot);
+
+    let aim_at = |app: &mut App, degrees: f32| {
+        app.world_mut()
+            .get_mut::<camera_controller::CameraAim>(character)
+            .unwrap()
+            .yaw = aim.yaw + degrees.to_radians();
+        for _ in 0..90 {
+            app.update();
+        }
+    };
+    aim_at(&mut app, 40.0);
+    let chest_turned = turned_since(&app, chest, chest_before).to_degrees();
+    let pelvis_turned = turned_since(&app, pelvis, pelvis_before).to_degrees();
+    assert!(
+        (chest_turned - 40.0).abs() < 6.0,
+        "the chest turned {chest_turned}°"
+    );
+    assert!(
+        pelvis_turned.abs() < 3.0,
+        "the pelvis turned {pelvis_turned}°"
+    );
+    let twist = app
+        .world()
+        .get::<AimTwist>(model)
+        .unwrap()
+        .angle
+        .to_degrees();
+    assert!((twist - 40.0).abs() < 1.0, "twist {twist}°");
+    let slid = position(&app, foot).xz().distance(planted.xz());
+    assert!(slid < 0.03, "the foot slid {slid} m");
+
+    // Past the max, it turns as far as the max.
+    aim_at(&mut app, 100.0);
+    let twist = app
+        .world()
+        .get::<AimTwist>(model)
+        .unwrap()
+        .angle
+        .to_degrees();
+    assert!((twist - 60.0).abs() < 1.0, "twist {twist}°");
 }
 
 /// How far the library's clips go.
@@ -614,10 +990,17 @@ fn stops_with_the_body(app: &mut App, character: Entity, model: Entity, kind: &s
     assert!(matched > 0, "never matched");
 }
 
-/// The weight of Locomotion's sample `sample` (walk, jog or sprint, in
-/// that order), as it plays.
+/// Locomotion's samples, in order: the walks then the jogs round from
+/// ahead (see [`WALKS`]), then the sprint.
+const SAMPLES: [&str; 17] = [
+    "walk", "walk fr", "walk r", "walk br", "walk b", "walk bl", "walk l", "walk fl", "jog",
+    "jog fr", "jog r", "jog br", "jog b", "jog bl", "jog l", "jog fl", "sprint",
+];
+
+/// The weight of Locomotion's sample `sample` (see [`SAMPLES`]; ahead,
+/// `walk` and `jog`), as it plays.
 fn weight(app: &App, model: Entity, sample: &str) -> f32 {
-    let index = ["walk", "jog", "sprint"]
+    let index = SAMPLES
         .iter()
         .position(|s| *s == sample)
         .unwrap_or_else(|| panic!("no sample {sample}"));

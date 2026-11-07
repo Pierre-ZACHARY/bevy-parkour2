@@ -10,7 +10,7 @@ publish = false
 # on their own.
 [workspace]
 members = ["crates/game_telemetry", "crates/camera_controller", "crates/character_animation", "crates/character_controller", "crates/ninja_character", "crates/ninja_hair", "crates/pose_preview", "crates/skeleton_retarget", "tools/xtask", "tools/asset-export", "tools/basisu-prepare", "tools/basisu-prototype"]
-exclude = ["crates/bevy_noodle", "crates/bevy_noodle_jackdaw", "crates/bevy_noodle_jackdaw_editor", "vendor/iyes_perf_ui"]
+exclude = ["crates/bevy_noodle", "crates/bevy_noodle_jackdaw", "crates/bevy_noodle_jackdaw_editor", "vendor/iyes_perf_ui", "vendor/jackdaw_pie_protocol"]
 
 [features]
 # The Jackdaw editor builds the plain package, so defaults are what it gets.
@@ -50,7 +50,7 @@ leafwing-input-manager = "0.22"
 image = { version = "0.25", optional = true, default-features = false, features = ["png"] }
 serde_json = "1"
 # Bevy 0.20 port of iyes_perf_ui 0.5.0: see vendor/iyes_perf_ui/PORTING.md.
-iyes_perf_ui = { path = "vendor/iyes_perf_ui", optional = true, default-features = false, features = ["entries", "sysinfo"] }
+iyes_perf_ui = { path = "vendor/iyes_perf_ui", optional = true, default-features = false, features = ["entries", "sysinfo", "window"] }
 ninja_character = { path = "crates/ninja_character" }
 
 [dev-dependencies]
@@ -107,6 +107,7 @@ jackdaw_runtime = { version = "=0.20.1-rc.1", features = ["texture-import", "sof
 
 [patch.crates-io]
 jackdaw_runtime = { path = "vendor/jackdaw_runtime" }
+jackdaw_pie_protocol = { path = "vendor/jackdaw_pie_protocol" }
 
 [workspace.dependencies]
 bevy_basisu_loader = { git = "https://github.com/beicause/basisu_c_sys", rev = "14f2186f59b5e41a6cb1f9272b8175e7862d5b05" }

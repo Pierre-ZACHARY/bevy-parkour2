@@ -55,13 +55,53 @@ pub(crate) struct PieTransportRes(pub(crate) IpcChannelTransport);
 #[derive(Resource, Default)]
 struct HighlightedEntity(Option<Entity>);
 
+/// How often the scene's state streams to the editor after the initial
+/// snapshot. Each pass reflects every component of every `Transform` entity
+/// to JSON on the main thread (~4 ms for the game's scene of 314 entities,
+/// ~34 ms before the vendored protocol's snapshot fix), too much for every frame.
+const STREAM_INTERVAL: std::time::Duration = std::time::Duration::from_millis(100);
+
 /// Tracks whether the initial full snapshot has been streamed, and the last
 /// serialized component values per entity for value-diff delta streaming.
-#[derive(Resource, Default)]
+#[derive(Resource)]
 struct PieStreamState {
     sent_initial: bool,
     /// Last-sent component values keyed by entity bits then type path.
     last_sent: std::collections::HashMap<u64, std::collections::HashMap<String, serde_json::Value>>,
+    /// Real time between delta passes.
+    interval: std::time::Duration,
+    /// Real time since the last delta pass.
+    since_sent: std::time::Duration,
+}
+
+impl Default for PieStreamState {
+    fn default() -> Self {
+        Self {
+            sent_initial: false,
+            last_sent: default(),
+            interval: STREAM_INTERVAL,
+            since_sent: default(),
+        }
+    }
+}
+
+impl PieStreamState {
+    /// Advance by `delta` of real time; whether a delta pass is due.
+    fn delta_due(&mut self, delta: std::time::Duration) -> bool {
+        self.since_sent += delta;
+        if self.since_sent < self.interval {
+            return false;
+        }
+        // Keep the remainder so passes average the interval, unless a hitch
+        // left a whole interval of it, which would make the next frame pass too.
+        let left = self.since_sent - self.interval;
+        self.since_sent = if left < self.interval {
+            left
+        } else {
+            std::time::Duration::ZERO
+        };
+        true
+    }
 }
 
 /// Install the PIE transport and the stream / apply systems.
@@ -141,8 +181,9 @@ fn lift_scene_node_id(
 ///
 /// On the first run, ships a full `EntitySpawned` snapshot for every entity
 /// with a `Transform` on the reliable channel and records those component values
-/// in `last_sent`. On subsequent runs, calls `build_snapshot` for all
-/// `With<Transform>` entities and value-diffs against `last_sent`:
+/// in `last_sent`. On later runs, once every [`STREAM_INTERVAL`] of real time,
+/// calls `build_snapshot` for all `With<Transform>` entities and value-diffs
+/// against `last_sent`:
 ///   - New entity bits: emit `EntitySpawned` (reliable) and record all components.
 ///   - Known entity bits: emit `ComponentChanged` (unreliable) for each component
 ///     whose serialized value differs from the last-sent value.
@@ -153,7 +194,12 @@ fn stream_state(world: &mut World) {
         return;
     }
 
-    let sent_initial = world.resource::<PieStreamState>().sent_initial;
+    let delta = world.resource::<Time<Real>>().delta();
+    let mut pie_state = world.resource_mut::<PieStreamState>();
+    let sent_initial = pie_state.sent_initial;
+    if sent_initial && !pie_state.delta_due(delta) {
+        return;
+    }
 
     // Derived face meshes are excluded (the editor regenerates faces from the
     // streamed `Brush`), as is the frame-capture camera (pure capture
@@ -803,7 +849,28 @@ mod tests {
             .spawn((Name::new("pie-probe"), Transform::from_xyz(1.0, 2.0, 3.0)))
             .id();
         attach_pie(&mut app, transport);
+        // Stream every update: these tests drive a handful of fast updates.
+        app.world_mut().resource_mut::<PieStreamState>().interval = std::time::Duration::ZERO;
         (app, entity)
+    }
+
+    #[test]
+    fn deltas_stream_once_per_interval() {
+        use std::time::Duration;
+        let mut state = PieStreamState::default();
+        let frame = Duration::from_millis(30);
+        let due: Vec<bool> = (0..10).map(|_| state.delta_due(frame)).collect();
+        // 30 ms frames against 100 ms: due at 120, 210 and 300 ms, each pass
+        // carrying its remainder.
+        assert_eq!(
+            due,
+            [
+                false, false, false, true, false, false, true, false, false, true
+            ]
+        );
+        // A long hitch passes once, not on every following frame.
+        assert!(state.delta_due(Duration::from_millis(500)));
+        assert!(!state.delta_due(frame));
     }
 
     /// Build a minimal app with `SceneNodeId` registered, spawn one entity that

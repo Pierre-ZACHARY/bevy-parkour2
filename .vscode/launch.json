@@ -7,6 +7,10 @@
     // The editor entry opens the precompiled editor `jackdaw.toml` pins
     // (`jd open`; the cargo-installed `jackdaw` loads no extensions), after
     // rebuilding the project's extensions if their sources changed.
+    // Both lldb entries turn off lldb's GDB JIT loader: NVIDIA's shader
+    // compiler (nvgpucomp64.dll) registers every shader it compiles through
+    // `__jit_debug_register_code`, and lldb stopping on each one held the
+    // game at 0 fps while it compiled its pipelines.
     "version": "0.2.0",
     "configurations": [
         {
@@ -18,7 +22,8 @@
             "cwd": "${workspaceFolder}",
             "env": {
                 // Read and watch `assets/` in place, not dx's bundled copy.
-                "BEVY_ASSET_ROOT": "${workspaceFolder}"
+                "BEVY_ASSET_ROOT": "${workspaceFolder}",
+                "RUST_LOG": "info,camera_controller::controller=debug"
             }
         },
         {
@@ -52,6 +57,7 @@
                     "_NO_DEBUG_HEAP": "1"
                 }
             },
+            "initCommands": ["settings set plugin.jit-loader.gdb.enable off"],
             "sourceLanguages": ["rust"],
             "terminal": "console"
         },
@@ -70,6 +76,7 @@
             "env": {
                 "BEVY_ASSET_ROOT": "${workspaceFolder}"
             },
+            "initCommands": ["settings set plugin.jit-loader.gdb.enable off"],
             "sourceLanguages": ["rust"],
             "terminal": "console"
         }
