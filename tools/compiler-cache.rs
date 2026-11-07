@@ -63,6 +63,34 @@ fn exe(name: &str) -> String {
     format!("{name}{}", env::consts::EXE_SUFFIX)
 }
 
+fn active_compiler() -> Result<String> {
+    if let (Some(requested), Some(version), Some(target), Some(rustc)) = (
+        env::var_os("RUSTUP_TOOLCHAIN"),
+        env::var_os("PARKOUR_NIX_EDITOR_TOOLCHAIN"),
+        env::var_os("PARKOUR_NIX_EDITOR_TARGET"),
+        env::var_os("PARKOUR_NIX_EDITOR_RUSTC"),
+    ) {
+        let qualified = format!("{}-{}", version.to_string_lossy(), target.to_string_lossy());
+        if requested == version || requested == OsString::from(qualified) {
+            return rustc
+                .into_string()
+                .map_err(|_| "non-UTF8 Nix editor rustc path".into());
+        }
+    }
+    if let Some(rustc) =
+        env::var_os("PARKOUR_NIX_RUSTC").filter(|_| env::var_os("RUSTUP_TOOLCHAIN").is_none())
+    {
+        return rustc
+            .into_string()
+            .map_err(|_| "non-UTF8 Nix rustc path".into());
+    }
+    let actual = Command::new("rustup").args(["which", "rustc"]).output()?;
+    if !actual.status.success() {
+        return Err("cannot resolve active rustc through rustup".into());
+    }
+    Ok(String::from_utf8(actual.stdout)?.trim().to_owned())
+}
+
 fn checked(command: &mut Command) -> Result<()> {
     let status = command.status()?;
     if !status.success() {
@@ -72,6 +100,23 @@ fn checked(command: &mut Command) -> Result<()> {
         )
         .into());
     }
+    Ok(())
+}
+
+fn install_executable(source: &Path, destination: &Path) -> Result<()> {
+    #[cfg(unix)]
+    {
+        // A running facade (notably `sccache --run dx serve`) keeps its inode
+        // executable. Replace the directory entry instead of overwriting it.
+        let temporary = destination.with_extension(format!("{}.install", std::process::id()));
+        fs::copy(source, &temporary)?;
+        if let Err(error) = fs::rename(&temporary, destination) {
+            let _ = fs::remove_file(&temporary);
+            return Err(error.into());
+        }
+    }
+    #[cfg(not(unix))]
+    fs::copy(source, destination)?;
     Ok(())
 }
 
@@ -130,7 +175,13 @@ fn setup(root: &Path) -> Result<()> {
     fs::create_dir_all(&real_dir)?;
     let real = real_dir.join(exe("sccache"));
     let receipt = home.join("release.sha256");
-    if !real.is_file() || fs::read_to_string(&receipt).unwrap_or_default() != hash {
+    if let Some(nix_sccache) = env::var_os("PARKOUR_NIX_SCCACHE") {
+        let nix_receipt = format!("nix:{}", Path::new(&nix_sccache).display());
+        if !real.is_file() || fs::read_to_string(&receipt).unwrap_or_default() != nix_receipt {
+            install_executable(Path::new(&nix_sccache), &real)?;
+            fs::write(&receipt, nix_receipt)?;
+        }
+    } else if !real.is_file() || fs::read_to_string(&receipt).unwrap_or_default() != hash {
         let archive = home.join("sccache.tar.gz");
         let url = format!(
             "https://github.com/mozilla/sccache/releases/download/v{VERSION}/sccache-v{VERSION}-{host}.tar.gz"
@@ -166,14 +217,14 @@ fn setup(root: &Path) -> Result<()> {
                 .arg(&home)
                 .arg(&member),
         )?;
-        fs::copy(home.join(member), &real)?;
+        install_executable(&home.join(member), &real)?;
         fs::write(&receipt, hash)?;
     }
     let current = env::current_exe()?;
     for name in ["sccache", "rustc-cache", "rustc"] {
         let destination = bin.join(exe(name));
         if !destination.is_file() || fs::read(&current)? != fs::read(&destination)? {
-            fs::copy(&current, destination)?;
+            install_executable(&current, &destination)?;
         }
     }
     fs::write(
@@ -313,13 +364,7 @@ fn configuration(root: &Path) -> Result<BTreeMap<String, OsString>> {
     config.hash(&mut hasher);
     // Cargo's rustup proxy sets RUSTUP_TOOLCHAIN, while a direct stats command
     // may not. Resolve the compiler so both reach the same project daemon.
-    let active = Command::new("rustup").args(["which", "rustc"]).output()?;
-    if !active.status.success() {
-        return Err("cannot resolve the cache toolchain".into());
-    }
-    String::from_utf8_lossy(&active.stdout)
-        .trim()
-        .hash(&mut hasher);
+    active_compiler()?.hash(&mut hasher);
     if !config.contains_key("SCCACHE_SERVER_PORT") {
         config.insert(
             "SCCACHE_SERVER_PORT".into(),
@@ -379,8 +424,12 @@ fn run() -> Result<i32> {
     if !actual_sccache.is_file() {
         return Err("run pwsh -File tools/setup_cache.ps1 once before building".into());
     }
-    let compiler_mode = env::current_exe()?
-        .file_stem()
+    // argv[0] keeps the installed name if another shell atomically replaces
+    // this inode; /proc/self/exe may then end in " (deleted)" on Linux.
+    let compiler_mode = env::args_os()
+        .next()
+        .as_deref()
+        .and_then(|name| Path::new(name).file_stem())
         .is_some_and(|s| s == "rustc-cache" || s == "rustc");
     // The outer frontend also has the standard sccache name so cc-rs can use
     // it for C/C++. Avoid double caching when Cargo selects our compiler facade.
@@ -403,11 +452,7 @@ fn run() -> Result<i32> {
     if compiler_mode {
         // Honor cargo +toolchain / Jackdaw's SDK toolchain, never hardcode the
         // game's compiler for extensions built with the editor's pinned rustc.
-        let actual = Command::new("rustup").args(["which", "rustc"]).output()?;
-        if !actual.status.success() {
-            return Err("cannot resolve active rustc through rustup".into());
-        }
-        let compiler = String::from_utf8(actual.stdout)?;
+        let compiler = active_compiler()?;
         let compiler = compiler.trim();
         // sccache 0.19 expands Rust response files into a Windows command
         // line. Large web-sys feature/check-cfg lists then fail with OS 206,

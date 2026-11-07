@@ -10,7 +10,7 @@ use std::{
 };
 use walkdir::WalkDir;
 
-#[derive(Clone, Debug, Deserialize, Serialize)]
+#[derive(Clone, Debug, Deserialize, Serialize, Eq, PartialEq)]
 pub struct Spec {
     pub id: String,
     pub host: String,
@@ -111,10 +111,39 @@ fn installed(base: &Path, spec: &Spec) -> Result<PathBuf> {
     find_file(&base.join("content"), &spec.file)
 }
 pub fn cached(cache: &Path, spec: &Spec) -> Result<PathBuf> {
+    if let Some(path) = provided_tool(spec)? {
+        return Ok(path);
+    }
     installed(
         &cache.join(&spec.id).join(&spec.version).join(&spec.host),
         spec,
     )
+}
+// Nix provides the exact tools.lock.json downloads with their ELF interpreter
+// patched. Do not replace them with the unpatched upstream download on NixOS.
+fn provided_tool(spec: &Spec) -> Result<Option<PathBuf>> {
+    let Some(dir) = std::env::var_os("XTASK_TOOLS_DIR") else {
+        return Ok(None);
+    };
+    provided_tool_in(Path::new(&dir), &crate::model::host()?, spec)
+}
+fn provided_tool_in(dir: &Path, host: &str, spec: &Spec) -> Result<Option<PathBuf>> {
+    if !matches!(
+        spec.id.as_str(),
+        "nextest" | "llvm-cov" | "wasm-bindgen" | "wasm-opt"
+    ) || spec.host != host
+        || !specs()?.contains(spec)
+    {
+        return Ok(None);
+    }
+    let path = dir.join(&spec.file);
+    anyhow::ensure!(
+        path.is_file(),
+        "missing provisioned {}: {}",
+        spec.id,
+        path.display()
+    );
+    Ok(Some(path))
 }
 struct Lock(PathBuf);
 impl Drop for Lock {
@@ -123,6 +152,9 @@ impl Drop for Lock {
     }
 }
 pub fn ensure(cache: &Path, spec: &Spec, offline: bool) -> Result<PathBuf> {
+    if let Some(path) = provided_tool(spec)? {
+        return Ok(path);
+    }
     let parent = cache.join(&spec.id).join(&spec.version);
     let base = parent.join(&spec.host);
     if base.exists() {
@@ -479,4 +511,21 @@ mod tests {
         );
         server.join().unwrap();
     }
+}
+#[test]
+fn provisioned_tools_only_replace_the_exact_upstream_pin() -> Result<()> {
+    let temp = tempfile::tempdir()?;
+    let mut pin = spec("nextest", "x86_64-unknown-linux-gnu")?;
+    let host = "x86_64-unknown-linux-gnu";
+    assert!(provided_tool_in(temp.path(), host, &pin).is_err());
+    let binary = temp.path().join(&pin.file);
+    fs::write(&binary, "provided tool")?;
+    assert_eq!(provided_tool_in(temp.path(), host, &pin)?, Some(binary));
+    assert_eq!(
+        provided_tool_in(temp.path(), "aarch64-unknown-linux-gnu", &pin)?,
+        None
+    );
+    pin.url = "http://127.0.0.1:1/interrupted-fixture".into();
+    assert_eq!(provided_tool_in(temp.path(), host, &pin)?, None);
+    Ok(())
 }

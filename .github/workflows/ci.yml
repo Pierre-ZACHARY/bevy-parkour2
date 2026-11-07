@@ -42,25 +42,13 @@ jobs:
         with:
           repository: ${{ vars.ASSETS_REPOSITORY }}
           ssh-key: ${{ secrets.ASSETS_DEPLOY_KEY }}
-      - uses: dtolnay/rust-toolchain@683b588c487a69d01f6c6ddf40f036ff682cc2c8
-        with:
-          toolchain: 1.97.1
-          components: rustfmt, clippy
-      - uses: awalsh128/cache-apt-pkgs-action@553a35bb8ebd9fcabcb1c9451aa4c98e1b4ca8a9
-        with:
-          packages: libasound2-dev libudev-dev libx11-dev libwayland-dev libxkbcommon-dev libxcb-render0-dev libxcb-shape0-dev libxcb-xfixes0-dev pkg-config
-          version: 1
-      - uses: Swatinem/rust-cache@d1527c8f67ef9af357290475d4af4b0fab8f12e0
-        with:
-          key: lint
+      - uses: ./.github/actions/nix
       - name: Load shared cache access from Infisical (trusted jobs)
         if: github.event_name != 'pull_request' && vars.INFISICAL_BUILD_IDENTITY_ID != ''
         shell: pwsh
         run: ./tools/infisical-ci.ps1 -Scope cache -IdentityId '${{ vars.INFISICAL_BUILD_IDENTITY_ID }}' -VerifyIsolation
-      - name: Set up project compiler cache
-        shell: pwsh
-        run: ./tools/setup_cache.ps1
-      - run: cargo xtask lint
+      - run: nix flake check --all-systems --no-build
+      - run: nix develop .#ci -c cargo xtask lint
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
         if: always()
         with:
@@ -108,16 +96,15 @@ jobs:
         with:
           repository: ${{ vars.ASSETS_REPOSITORY }}
           ssh-key: ${{ secrets.ASSETS_DEPLOY_KEY }}
+      - uses: ./.github/actions/nix
+        if: runner.os == 'Linux'
       - uses: dtolnay/rust-toolchain@683b588c487a69d01f6c6ddf40f036ff682cc2c8
+        if: runner.os != 'Linux'
         with:
           toolchain: 1.97.1
           components: llvm-tools-preview
-      - uses: awalsh128/cache-apt-pkgs-action@553a35bb8ebd9fcabcb1c9451aa4c98e1b4ca8a9
-        if: runner.os == 'Linux'
-        with:
-          packages: libasound2-dev libudev-dev libx11-dev libwayland-dev libxkbcommon-dev libxcb-render0-dev libxcb-shape0-dev libxcb-xfixes0-dev pkg-config
-          version: 1
       - uses: Swatinem/rust-cache@d1527c8f67ef9af357290475d4af4b0fab8f12e0
+        if: runner.os != 'Linux'
         with:
           key: tests-${{ matrix.target }}
           cache-directories: target/xtask-cache
@@ -126,9 +113,13 @@ jobs:
         shell: pwsh
         run: ./tools/infisical-ci.ps1 -Scope cache -IdentityId '${{ vars.INFISICAL_BUILD_IDENTITY_ID }}'
       - name: Set up project compiler cache
+        if: runner.os != 'Linux'
         shell: pwsh
         run: ./tools/setup_cache.ps1
+      - run: nix develop .#ci -c cargo xtask ${{ matrix.command }} ${{ github.event_name == 'pull_request' && '--suites xtask,graph,asset-export,noodle' || '' }}
+        if: runner.os == 'Linux'
       - run: cargo xtask ${{ matrix.command }} ${{ github.event_name == 'pull_request' && '--suites xtask,graph,asset-export,noodle' || '' }}
+        if: runner.os != 'Linux'
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
         if: always()
         with:
@@ -176,40 +167,26 @@ jobs:
         with:
           repository: ${{ vars.ASSETS_REPOSITORY }}
           ssh-key: ${{ secrets.ASSETS_DEPLOY_KEY }}
+      - uses: ./.github/actions/nix
+        if: runner.os == 'Linux'
       - uses: dtolnay/rust-toolchain@683b588c487a69d01f6c6ddf40f036ff682cc2c8
+        if: runner.os != 'Linux'
         with:
           toolchain: 1.97.1
-      - uses: awalsh128/cache-apt-pkgs-action@553a35bb8ebd9fcabcb1c9451aa4c98e1b4ca8a9
-        if: runner.os == 'Linux'
-        with:
-          packages: libasound2-dev libudev-dev libx11-dev libwayland-dev libxkbcommon-dev libxcb-render0-dev libxcb-shape0-dev libxcb-xfixes0-dev pkg-config
-          version: 1
       - uses: Swatinem/rust-cache@d1527c8f67ef9af357290475d4af4b0fab8f12e0
+        if: runner.os != 'Linux'
         with:
           key: build-${{ matrix.os }}
           cache-directories: target/xtask-cache
-      - name: Install Clang 22 for vendored WebGPU libc++
-        if: contains(matrix.targets, 'webgpu')
-        shell: bash
-        run: |
-          set -euo pipefail
-          key="$RUNNER_TEMP/llvm-archive-key.asc"
-          curl --fail --silent --show-error https://apt.llvm.org/llvm-snapshot.gpg.key -o "$key"
-          fingerprint=$(gpg --show-keys --with-colons "$key" | awk -F: '$1 == "fpr" { print $10; exit }')
-          test "$fingerprint" = 6084F3CF814B57C1CF12EFD515CF4D18AF4F7421
-          sudo gpg --batch --yes --dearmor -o /usr/share/keyrings/llvm-archive.gpg "$key"
-          echo 'deb [signed-by=/usr/share/keyrings/llvm-archive.gpg] https://apt.llvm.org/noble/ llvm-toolchain-noble-22 main' | sudo tee /etc/apt/sources.list.d/llvm-22.list
-          sudo apt-get update
-          sudo apt-get install --yes --no-install-recommends clang-22 libclang-22-dev
-          clang++-22 --version
-          echo 'CC_wasm32_unknown_unknown=clang-22' >> "$GITHUB_ENV"
-          echo 'CXX_wasm32_unknown_unknown=clang++-22' >> "$GITHUB_ENV"
-          echo 'LIBCLANG_PATH=/usr/lib/llvm-22/lib' >> "$GITHUB_ENV"
+      - name: Build the cached Crane release derivation
+        if: runner.os == 'Linux'
+        run: nix build .#game .#game-deps --print-build-logs
       - name: Load shared cache access from Infisical (trusted jobs)
         if: github.event_name != 'pull_request' && vars.INFISICAL_BUILD_IDENTITY_ID != ''
         shell: pwsh
         run: ./tools/infisical-ci.ps1 -Scope cache -IdentityId '${{ vars.INFISICAL_BUILD_IDENTITY_ID }}'
       - name: Set up project compiler cache
+        if: runner.os != 'Linux'
         shell: pwsh
         run: ./tools/setup_cache.ps1
       - name: Load official build client configuration
@@ -222,7 +199,12 @@ jobs:
         run: if (-not $env:SENTRY_AUTH_TOKEN) { throw 'Missing release environment credential' }
         env:
           INFISICAL_RELEASE_PROJECT_ID: ${{ vars.INFISICAL_RELEASE_PROJECT_ID }}
+      - run: nix develop .#ci -c cargo xtask build --targets ${{ matrix.targets }} --asset-quality ${{ inputs.asset_quality || 'original' }} --channel ${{ github.ref_type == 'tag' && 'official' || 'local' }}
+        if: runner.os == 'Linux'
+        env:
+          XTASK_TAG: ${{ github.ref_type == 'tag' && github.ref_name || '' }}
       - run: cargo xtask build --targets ${{ matrix.targets }} --asset-quality ${{ inputs.asset_quality || 'original' }} --channel ${{ github.ref_type == 'tag' && 'official' || 'local' }}
+        if: runner.os != 'Linux'
         env:
           XTASK_TAG: ${{ github.ref_type == 'tag' && github.ref_name || '' }}
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
@@ -253,16 +235,11 @@ jobs:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
         with:
           fetch-depth: 0
-      - uses: dtolnay/rust-toolchain@683b588c487a69d01f6c6ddf40f036ff682cc2c8
-        with:
-          toolchain: 1.97.1
+      - uses: ./.github/actions/nix
       - name: Load shared cache access from Infisical (trusted jobs)
         if: github.event_name != 'pull_request' && vars.INFISICAL_BUILD_IDENTITY_ID != ''
         shell: pwsh
         run: ./tools/infisical-ci.ps1 -Scope cache -IdentityId '${{ vars.INFISICAL_BUILD_IDENTITY_ID }}'
-      - name: Set up project compiler cache
-        shell: pwsh
-        run: ./tools/setup_cache.ps1
       - name: Load release configuration
         shell: pwsh
         run: |
@@ -270,7 +247,7 @@ jobs:
           if (-not $env:SENTRY_AUTH_TOKEN) { throw 'Missing release environment credential' }
         env:
           INFISICAL_RELEASE_PROJECT_ID: ${{ vars.INFISICAL_RELEASE_PROJECT_ID }}
-      - run: cargo xtask sentry-finalize --tag "$XTASK_TAG"
+      - run: nix develop .#ci -c cargo xtask sentry-finalize --tag "$XTASK_TAG"
         env:
           XTASK_TAG: ${{ github.ref_name }}
 
@@ -285,9 +262,7 @@ jobs:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
         with:
           fetch-depth: 0
-      - uses: dtolnay/rust-toolchain@683b588c487a69d01f6c6ddf40f036ff682cc2c8
-        with:
-          toolchain: 1.97.1
+      - uses: ./.github/actions/nix
       - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093
         with:
           name: tests-linux-x64
@@ -300,9 +275,6 @@ jobs:
         if: github.event_name != 'pull_request' && vars.INFISICAL_BUILD_IDENTITY_ID != ''
         shell: pwsh
         run: ./tools/infisical-ci.ps1 -Scope cache -IdentityId '${{ vars.INFISICAL_BUILD_IDENTITY_ID }}'
-      - name: Set up project compiler cache
-        shell: pwsh
-        run: ./tools/setup_cache.ps1
       - name: Load dedicated Sonar analysis credentials
         shell: pwsh
         run: ./tools/infisical-ci.ps1 -Scope analysis -IdentityId '${{ vars.INFISICAL_BUILD_IDENTITY_ID }}'
@@ -313,7 +285,7 @@ jobs:
           $lint = Get-ChildItem artifacts/sonar-lint -Directory | Where-Object { Test-Path (Join-Path $_.FullName 'clippy') } | Select-Object -First 1
           if (-not $run -or -not $lint) { throw 'Missing coverage or Clippy artifacts' }
           Copy-Item -LiteralPath (Join-Path $lint.FullName 'clippy') -Destination $run.FullName -Recurse
-          cargo xtask sonar --input $run.FullName --upload
+          nix develop .#ci -c cargo xtask sonar --input $run.FullName --upload
 
   required:
     name: All required checks
@@ -322,15 +294,7 @@ jobs:
     runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
-      - uses: dtolnay/rust-toolchain@683b588c487a69d01f6c6ddf40f036ff682cc2c8
-        with:
-          toolchain: 1.97.1
-      - uses: Swatinem/rust-cache@d1527c8f67ef9af357290475d4af4b0fab8f12e0
-        with:
-          key: gate
-      - name: Set up project compiler cache
-        shell: pwsh
-        run: ./tools/setup_cache.ps1
-      - run: cargo xtask gate
+      - uses: ./.github/actions/nix
+      - run: nix develop .#ci -c cargo xtask gate
         env:
           XTASK_JOB_RESULTS: ${{ toJSON(needs) }}

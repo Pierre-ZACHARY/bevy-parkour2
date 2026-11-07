@@ -12,6 +12,7 @@ mod sentry;
 mod sentry_cli;
 mod sentry_web;
 mod sonar;
+mod toolchain;
 
 use anyhow::{Context, Result};
 use clap::{Parser, Subcommand};

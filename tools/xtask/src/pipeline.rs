@@ -63,14 +63,12 @@ pub fn doctor(root: &Path, opts: &Common, host: &str, requested: &[Target]) -> R
     } else {
         requested.to_vec()
     };
-    let installed =
-        process::output(Command::new("rustup").args(["target", "list", "--installed"]))?;
     let mut errors = Vec::new();
     for target in targets {
         if let Err(e) = target.validate(host) {
             errors.push(e.to_string());
         }
-        if !installed.lines().any(|l| l == target.triple()) {
+        if !crate::toolchain::has_target(root, target.triple())? {
             errors.push(format!(
                 "missing Rust target {}; rustup target add {}",
                 target.triple(),
@@ -159,6 +157,13 @@ pub fn lint(run: &mut Run, opts: &Common, suites: &[Suite]) -> Result<()> {
     Ok(())
 }
 fn llvm_component(root: &Path, opts: &Common) -> Result<()> {
+    if std::env::var_os("PARKOUR_NIX_RUSTC").is_some() {
+        for key in ["LLVM_COV", "LLVM_PROFDATA"] {
+            let path = std::env::var_os(key).with_context(|| format!("missing Nix {key}"))?;
+            anyhow::ensure!(Path::new(&path).is_file(), "missing Nix tool {key}");
+        }
+        return Ok(());
+    }
     let installed = process::output(
         Command::new("rustup")
             .args(["component", "list", "--installed"])

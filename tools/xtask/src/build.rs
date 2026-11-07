@@ -119,26 +119,7 @@ fn build_one(
     if target == Target::Webgpu {
         crate::prototype::prepare_dependencies(&run.root, opts.offline)?;
     }
-    let installed = process::output(
-        Command::new("rustup")
-            .args(["target", "list", "--installed"])
-            .current_dir(&run.root),
-    )?;
-    if !installed.lines().any(|l| l == target.triple()) {
-        anyhow::ensure!(
-            !opts.offline,
-            "missing target {} in offline mode",
-            target.triple()
-        );
-        anyhow::ensure!(
-            process::run(
-                run,
-                &format!("{}-rust-target", target.name()),
-                Command::new("rustup").args(["target", "add", target.triple()])
-            )?,
-            "rustup target installation failed"
-        );
-    }
+    crate::toolchain::require_target(&run.root, target.triple(), opts.offline)?;
     let mut tool_versions = BTreeMap::new();
     let web_tools = if target == Target::Webgpu {
         check_bindgen_version(&run.root, &run.host)?;

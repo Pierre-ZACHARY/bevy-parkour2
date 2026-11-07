@@ -31,3 +31,6 @@ node_modules/
 /infra/ovh-bootstrap/Pulumi.*.yml.*
 /infra/ovh-bootstrap/.pulumi/
 /.compiler-cache/
+/result
+/result-*
+/.direnv/

@@ -5,11 +5,12 @@ runners, checkout, caches, credentials and artifact storage. The same commands
 run locally. Third-party compilers, nextest, LLVM and packaging tools still do
 their specialized work.
 
-The Linux x64/WebGPU job installs Clang 22 from LLVM's signed Noble repository,
-verifies the archive key fingerprint, and selects that compiler for wasm C/C++.
-Basis's vendored libc++ needs newer builtins than the runner's default Clang.
-Native targets retain their default compilers. Build cache keys use the runner
-OS, avoiding the comma in the combined `linux-x64,webgpu` target argument.
+Linux jobs enter the pinned `nix develop .#ci` environment; the release job also
+builds the Crane game and dependency derivations. Nix supplies native libraries,
+Rust, LLVM coverage and Clang 22 for wasm C/C++. Basis's vendored libc++ needs
+newer builtins than the runner's default Clang. The Nix store cache complements
+the existing sccache backend. Windows/macOS retain their native setup. See the
+[Nix / Crane guide](NIX.md), including native package closure requirements.
 Main builds queue behind the current run so a new push does not discard a cold
 Bevy compilation before its cache is saved. Superseded pull request runs cancel.
 The vendored `iyes_perf_ui` dependency is excluded from automatic workspace
@@ -116,8 +117,8 @@ Rust 1.97.1 is pinned in `rust-toolchain.toml`; compilation uses Cargo lockfiles
 The runner needs Git/LFS and its native compiler/linker:
 MSVC Build Tools on Windows, Xcode Command Line Tools on macOS, and a C toolchain
 plus pkg-config/ALSA/udev/X11/Wayland/xkbcommon development packages on Linux.
-The GitHub workflow delegates Linux package provisioning to a pinned setup
-action, with no project-maintained shell installer.
+The GitHub workflow delegates Linux provisioning to the locked Nix flake,
+with no project-maintained host package installer.
 
 `doctor` never downloads or installs. Execution can add Rust targets and the
 matching llvm-tools-preview component via rustup; all other tools are installed
