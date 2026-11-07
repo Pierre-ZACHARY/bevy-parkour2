@@ -84,13 +84,16 @@ Les fichiers de rapport sont `sccache-ovh-*.json`, `nix-ovh-push.json` et
 `nix-ovh-reader-*.json` dans les traces locales ignorées.
 
 Après les corrections finales de xtask, la release Linux a été reconstruite
-en 4 min 36 s. La sortie `game-deps` reste identique ; seule la dérivation du
+depuis les blobs Git canoniques en 4 min 45 s. La sortie `game-deps` reste
+identique ; seule la dérivation du
 jeu est reconstruite. Sa publication signée ne transfère qu'un chemin vers
 OVH, les dépendances étant déjà présentes. Un nouveau store vide restaure
 ensuite les 48 chemins de sa closure avec l'identité lecteur et vérifie leurs
 signatures. Le SHA-256 du binaire restauré est identique à l'original :
-`9d36f9aa90affaf7ab9d3b4097ef727a8686d6d3d54643e34875da7115186c79`.
-Ces essais sont consignés dans `final-crane-release.log` et `final-nix-ovh-*`.
+`77d8ee157543e093d7eba24d670812cd85667455d6105b4b9bfd189cfa773265`.
+La sortie est `/nix/store/5rix8fy1mqnd6shmsqa76zbigsb406q6-bevy-parkour2-0.1.0`.
+Ces essais sont consignés dans `canonical-crane-release.log` et
+`canonical-nix-ovh-*`.
 
 La politique lecteur OVH `944578` a été étendue, avec accord explicite, aux
 seuls GET des objets Nix. La même politique est suivie dans
@@ -107,7 +110,8 @@ révélé l'option `--exclude` invalide dans `llvm-cov report`, puis un manque d
 disque pendant Noodle. Les corrections retirent les options de collection de
 la phase rapport et autorisent la CI à supprimer chaque build de couverture
 après ses rapports, sous verrou. Les SDK inutilisés des runners Linux sont
-également retirés. La validation GitHub de ces corrections reste nécessaire.
+également retirés. L'exécution GitHub `42402743633` valide ensuite la
+couverture complète corrigée des cinq suites, rapports et doctests inclus.
 
 La couverture locale de la suite jeu a ensuite réussi avec les corrections :
 64 tests passent, 3 sont ignorés ; HTML, LCOV, JSON et doctests sont produits.
@@ -145,10 +149,13 @@ sandbox Darwin. L'ouverture de la fenêtre de l'éditeur sur macOS n'a pas été
 vérifiée ; la preuve graphique locale concerne Linux/WSLg.
 
 L'exécution complète `42402743633` confirme aussi les 263 tests réussis et
-8 ignorés sous Linux ARM64, ses doctests, sa release Crane et son ZIP xtask.
-Le build/package Windows et le lint passent. Les autres jobs de cette matrice
-restent en cours à ce stade ; son échec de tests Windows concerne l'ancien
+8 ignorés sous Linux ARM64 et macOS ARM64, ainsi que leurs doctests.
+Le lint, les trois releases Crane, le packaging Linux x64/ARM64, WebGPU,
+Windows et macOS passent. Son échec de tests Windows concerne l'ancien
 emplacement du cache et précède le correctif validé localement ci-dessus.
+Elle est clôturée après les neuf jobs utiles, avant sa consolidation déjà
+condamnée par cet échec. La [nouvelle matrice corrigée](https://github.com/Pierre-ZACHARY/bevy-parkour2/actions/runs/42410328628)
+sur `7f4c9d2` reste en cours à ce stade.
 
 ## Traces locales
 
@@ -159,9 +166,14 @@ xtask complets sont dans
 Ces chemins sont des artifacts locaux ignorés par Git, pas des fichiers requis
 par la flake.
 Les rapports Linux locaux portent le SHA de base du clone isolé, dont les
-fichiers modifiés ont été copiés depuis le worktree. `final-source-audit.json`
-confirme que les 16 fichiers modifiés d'exécution, Nix et outils correspondent
-octet pour octet à la branche publiée lors de ces dernières validations.
+fichiers modifiés ont été copiés depuis le worktree. Le premier audit compare
+ces copies aux fichiers physiques Windows. Un contrôle supplémentaire détecte
+trois différences de fins de ligne avec les objets Git. Le clone est ensuite
+normalisé depuis les blobs Git bruts, sans filtres Windows :
+`final-canonical-source-audit.json` confirme la correspondance exacte des
+16 fichiers modifiés d'exécution, Nix et outils avec les objets publiés.
+Les 32 tests xtask et la release sont revérifiés sur cet état canonique,
+puis cette sortie est publiée et restaurée depuis OVH avec signatures valides.
 
 Le [guide d'utilisation](NIX.md) décrit les commandes et la distinction entre
 store Nix, cache Cargo et sccache, ainsi que les limites de distribution des
