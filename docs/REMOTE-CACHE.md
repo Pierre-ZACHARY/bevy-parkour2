@@ -43,7 +43,8 @@ environments) switch to READ_WRITE with the Pulumi-managed `cache-ci-writer`
 key, which cannot delete objects. Infrastructure members use their private
 writer to populate the shared cache; this reads only those two keys and never
 grants collaborators infra access. Set `PROJECT_CACHE_ACCESS=read-only` to choose
-reader credentials explicitly. A build-only Viewer identity was verified to
+reader credentials explicitly. If the writer daemon cannot start (for example
+revoked S3 rights), the frontend retries with the reader before local disk. A build-only Viewer identity was verified to
 obtain an S3 hit with zero cache errors using this default frontend.
 Reader cache misses compile locally; infrastructure-member builds populate new
 entries in the shared cache.

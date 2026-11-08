@@ -187,3 +187,41 @@ pub fn register_writer(
         policy,
     }
 }
+
+/// Privileged members (Infisical infrastructure) write the cache locally with
+/// this pre-existing user. OVH object ACLs only grant the uploader, so without
+/// a policy it cannot read entries the CI writer publishes.
+pub fn register_maintainer_policy(
+    ctx: &Context,
+    provider: &Resource,
+    project: &str,
+    bucket: &str,
+    user_id: &str,
+) -> Resource {
+    let policy = serde_json::json!({"Statement":[{
+        "Sid":"MaintainCacheBucket", "Effect":"Allow",
+        "Action":["s3:GetObject","s3:PutObject","s3:DeleteObject","s3:ListBucket",
+            "s3:ListMultipartUploadParts","s3:ListBucketMultipartUploads",
+            "s3:AbortMultipartUpload","s3:GetBucketLocation"],
+        "Resource":[format!("arn:aws:s3:::{bucket}"), format!("arn:aws:s3:::{bucket}/*")]
+    }]})
+    .to_string();
+    ctx.register_resource(RegisterRequest {
+        type_: "ovh:index/cloudProjectUserS3Policy:CloudProjectUserS3Policy".into(),
+        name: "cache-maintainers".into(),
+        custom: true,
+        version: OVH_VERSION.into(),
+        inputs: vec![
+            ("serviceName".into(), value(project)),
+            ("userId".into(), value(user_id)),
+            ("policy".into(), value(policy)),
+        ],
+        options: ResourceOptions {
+            provider: Some(provider.clone()),
+            protect: Some(true),
+            ..Default::default()
+        },
+        package: Some(ovh_package()),
+        ..Default::default()
+    })
+}

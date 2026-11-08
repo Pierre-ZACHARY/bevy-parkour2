@@ -142,6 +142,13 @@ user. Only the owner key can create Public Cloud users, so this is two steps:
    `pulumi.ps1` loads the signing key from Infisical infrastructure; the
    program checks it matches `nix/cache-public-key`.
 
+OVH object ACLs grant only the uploading user. A user without an S3 policy
+therefore cannot read what another user wrote: once the CI writer publishes,
+the privileged local writer (the key in Infisical infrastructure `/`) needs its
+own policy. `cacheMaintainerUserId` attaches one to that existing user: full
+access (including Delete) to this bucket only. Policy changes can take a minute
+to propagate.
+
 Run `pulumi.ps1` with the usual provisioning `GITHUB_TOKEN`: the stack also
 manages `INFRA_GH_TOKEN` from that variable, so another token would replace it.
 

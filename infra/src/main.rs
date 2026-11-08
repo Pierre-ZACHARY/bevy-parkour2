@@ -117,6 +117,15 @@ fn main() {
         let cache_writer = config.get("cacheWriterUserId").map(|user| {
             cache_access::register_writer(&ctx, &provider, &project, &bucket_name, &user)
         });
+        if let Some(user) = config.get("cacheMaintainerUserId") {
+            cache_access::register_maintainer_policy(
+                &ctx,
+                &provider,
+                &project,
+                &bucket_name,
+                &user,
+            );
+        }
         cache_config::export(&ctx, &bucket_name)?;
         ctx.export("bucketName", value(bucket_name));
         sentry::register(&ctx)?;

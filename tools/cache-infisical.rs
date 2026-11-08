@@ -139,23 +139,42 @@ pub fn daemon(root: &Path, config: &BTreeMap<String, String>) -> Option<u16> {
     };
     // Infrastructure members populate the shared cache; collaborators use its
     // read-only credentials. Each lookup reads two keys, never admin tokens.
-    let maintainer = if setting("maintainerCacheFallback") == Some("true")
-        && env::var("PROJECT_CACHE_ACCESS").ok().as_deref() != Some("read-only")
-    {
-        read(setting("infraProjectId")?, "/").map(|values| (values, "READ_WRITE"))
-    } else {
-        None
-    };
-    let credentials = maintainer.or_else(|| {
-        read(setting("buildProjectId")?, setting("cachePath")?).map(|values| (values, "READ_ONLY"))
-    });
-    let Some((values, mode)) = credentials else {
-        let _ = fs::write(
-            failure,
-            "Infisical unavailable; retry after 60 seconds or remove this file.\n",
-        );
-        return None;
-    };
+    // A writer whose daemon cannot start (e.g. revoked S3 rights) still gets
+    // the read-only cache instead of silently falling back to local disk.
+    let maintainer = setting("maintainerCacheFallback") == Some("true")
+        && env::var("PROJECT_CACHE_ACCESS").ok().as_deref() != Some("read-only");
+    let attempts: [(&str, &str, &str); 2] = [
+        (setting("infraProjectId")?, "/", "READ_WRITE"),
+        (
+            setting("buildProjectId")?,
+            setting("cachePath")?,
+            "READ_ONLY",
+        ),
+    ];
+    for (project, path, mode) in attempts.into_iter().skip(usize::from(!maintainer)) {
+        if let Some(values) = read(project, path)
+            && start(root, &real, config, &values, mode, port)
+            && listening()
+        {
+            let _ = fs::remove_file(&failure);
+            return Some(port);
+        }
+    }
+    let _ = fs::write(
+        failure,
+        "Infisical unavailable; retry after 60 seconds or remove this file.\n",
+    );
+    None
+}
+
+fn start(
+    root: &Path,
+    real: &Path,
+    config: &BTreeMap<String, String>,
+    values: &[String],
+    mode: &str,
+    port: u16,
+) -> bool {
     let result = Command::new(real)
         .arg("--start-server")
         .envs(config)
@@ -175,14 +194,5 @@ pub fn daemon(root: &Path, config: &BTreeMap<String, String>) -> Option<u16> {
         .env_remove("INFISICAL_TOKEN")
         .output();
     // Never echo the secret manager's output/errors.
-    if result.is_ok_and(|o| o.status.success()) && listening() {
-        let _ = fs::remove_file(failure);
-        Some(port)
-    } else {
-        let _ = fs::write(
-            failure,
-            "Infisical unavailable; retry after 60 seconds or remove this file.\n",
-        );
-        None
-    }
+    result.is_ok_and(|o| o.status.success())
 }
