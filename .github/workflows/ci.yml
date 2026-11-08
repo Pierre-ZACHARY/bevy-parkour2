@@ -70,6 +70,14 @@ jobs:
           echo "sccache and Nix publication write to the shared OVH cache."
       - run: nix flake check --all-systems --no-build
       - run: nix develop .#ci -c cargo xtask lint
+      - name: Compiler cache statistics
+        # Hits, misses and writes of this job's sccache daemon (S3 or local).
+        if: ${{ !cancelled() }}
+        continue-on-error: true
+        shell: bash
+        run: |
+          if [ "$RUNNER_OS" = Windows ]; then ./.compiler-cache/bin/sccache --show-stats
+          else nix develop .#ci -c ./.compiler-cache/bin/sccache --show-stats; fi
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
         if: always()
         with:
@@ -162,6 +170,14 @@ jobs:
           XTASK_COVERAGE_CLEAN_TARGETS: '1'
       - run: cargo xtask ${{ matrix.command }} ${{ github.event_name == 'pull_request' && '--suites xtask,graph,asset-export,noodle' || '' }}
         if: runner.os == 'Windows'
+      - name: Compiler cache statistics
+        # Hits, misses and writes of this job's sccache daemon (S3 or local).
+        if: ${{ !cancelled() }}
+        continue-on-error: true
+        shell: bash
+        run: |
+          if [ "$RUNNER_OS" = Windows ]; then ./.compiler-cache/bin/sccache --show-stats
+          else nix develop .#ci -c ./.compiler-cache/bin/sccache --show-stats; fi
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
         if: always()
         with:
@@ -279,6 +295,14 @@ jobs:
         if: runner.os == 'Windows'
         env:
           XTASK_TAG: ${{ github.ref_type == 'tag' && github.ref_name || '' }}
+      - name: Compiler cache statistics
+        # Hits, misses and writes of this job's sccache daemon (S3 or local).
+        if: ${{ !cancelled() }}
+        continue-on-error: true
+        shell: bash
+        run: |
+          if [ "$RUNNER_OS" = Windows ]; then ./.compiler-cache/bin/sccache --show-stats
+          else nix develop .#ci -c ./.compiler-cache/bin/sccache --show-stats; fi
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
         if: always()
         with:
