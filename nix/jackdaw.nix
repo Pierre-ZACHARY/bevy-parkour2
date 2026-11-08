@@ -2,7 +2,10 @@
 let
   inherit (pkgs) lib;
   inherit (pkgs.stdenv.hostPlatform) isDarwin isLinux;
-  libraryPathVariable = if isDarwin then "DYLD_LIBRARY_PATH" else "LD_LIBRARY_PATH";
+  # DYLD_LIBRARY_PATH would also replace /usr/lib/libiconv.2.dylib for every child
+  # (the PIE's cargo then aborts: "Symbol not found: _libiconv"). The fallback
+  # path only serves libraries that are not found at their install name.
+  libraryPathVariable = if isDarwin then "DYLD_FALLBACK_LIBRARY_PATH" else "LD_LIBRARY_PATH";
 in
 pkgs.stdenv.mkDerivation {
   pname = "jackdaw-editor";

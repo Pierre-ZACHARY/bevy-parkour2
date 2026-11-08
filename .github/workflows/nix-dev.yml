@@ -60,6 +60,12 @@ jobs:
             echo "PARKOUR_OVH_CACHE_WRITER=1"
           } >> "$GITHUB_ENV"
           echo "sccache and Nix publication write to the shared OVH cache."
+      - name: Restore the development shell inputs from OVH
+        # Same pull as .envrc: Dioxus, Jackdaw and the SDK toolchain published
+        # by previous runs, instead of rebuilding them when GitHub evicted the store.
+        if: env.PARKOUR_OVH_CACHE_WRITER == '1'
+        continue-on-error: true
+        run: nix run .#nix-cache -- pull --inputs .#devShells.aarch64-darwin.default
       - name: Validate the Apple Silicon development shell
         run: |
           nix develop .#default --profile .compiler-cache/nix-dev-profile -c sh -ec '
