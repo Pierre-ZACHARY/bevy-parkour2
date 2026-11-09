@@ -1,6 +1,9 @@
 //! Jackdaw editor extension for this project: what the editor needs to show
 //! its models as the game does. The Ninja's hair gets its mip chain, in the
 //! scene's viewport and in the Flow Graph's blend space previews alike.
+//! Authored materials also resolve as assets when scene handles load them.
+
+mod material;
 
 use bevy::prelude::*;
 use jackdaw_extension::prelude::*;
@@ -26,7 +29,8 @@ impl JackdawExtension for ProjectExtension {
 
     fn app_plugin(&self) -> Option<Box<dyn Plugin>> {
         Some(Box::new(|app: &mut App| {
-            app.add_plugins(NinjaHairPlugin);
+            app.add_plugins(NinjaHairPlugin)
+                .init_asset_loader::<material::MaterialLoader>();
         }))
     }
 }

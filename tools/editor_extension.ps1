@@ -10,6 +10,8 @@
 # the previous one (deleted when the editor next starts). Releases keep
 # the plain version: bump it in Cargo.toml and pack by hand (README).
 
+param([switch]$Open)
+
 $ErrorActionPreference = 'Stop'
 $root = Split-Path $PSScriptRoot -Parent
 & (Join-Path $PSScriptRoot 'setup_cache.ps1')
@@ -28,12 +30,26 @@ $extensions = @(
 # editor that jackdaw.toml pins builds with the editor's.
 $pinned = [regex]::Match((Get-Content -Raw (Join-Path $root 'jackdaw.toml')),
     '(?m)^version\s*=\s*"([^"]+)"').Groups[1].Value
+# Nix supplies a precompiled SDK; register it automatically instead of
+# downloading another editor. Native Windows/Linux installations keep their path.
+if ($env:PARKOUR_NIX_EDITOR_DIR) {
+    jd editor locate $env:PARKOUR_NIX_EDITOR_DIR | Out-Host
+    if ($LASTEXITCODE -ne 0) { throw 'cannot register the Nix Jackdaw SDK' }
+}
 $editor = jd editor list | ForEach-Object {
     if ($_ -match "^\s+$([regex]::Escape($pinned))\s.*\s{2,}(\S.*)$") { $Matches[1].Trim() }
 } | Select-Object -First 1
 $jd = if ($editor) { Join-Path $editor ($IsWindows ? 'jd.exe' : 'jd') }
 if (-not $jd -or -not (Test-Path -LiteralPath $jd)) {
     throw "no installed Jackdaw $pinned (jackdaw.toml); install it with: jd editor install $pinned"
+}
+# We invoke the SDK's jd directly (not the wrapper in $out/bin). Its
+# compiler/proc macros and loaded extensions need these shared libraries too.
+if (-not $IsWindows) {
+    $variable = $IsMacOS ? 'DYLD_FALLBACK_LIBRARY_PATH' : 'LD_LIBRARY_PATH'
+    $previous = [Environment]::GetEnvironmentVariable($variable)
+    $paths = @($editor, (Join-Path $editor 'sdk/host-deps'), $previous) | Where-Object { $_ }
+    [Environment]::SetEnvironmentVariable($variable, ($paths -join [IO.Path]::PathSeparator))
 }
 $abi = (& $jd extension abi | Select-Object -First 1)
 
@@ -64,6 +80,14 @@ function Installed($id) {
     if ($line) { ($line -split "`t")[1] }
 }
 
+# Development bundles need a signing key too. Keep it in the ignored local
+# cache rather than writing to the user's global publisher configuration.
+$key = Join-Path $root '.compiler-cache/jackdaw-publisher.pk8'
+if (-not (Test-Path -LiteralPath $key)) {
+    & $jd extension keygen $key
+    if ($LASTEXITCODE -ne 0) { throw 'cannot create the local development signing key' }
+}
+
 foreach ($ext in $extensions) {
     $id = $ext.Crates[0]
     $label = $ext.Label
@@ -92,6 +116,7 @@ foreach ($ext in $extensions) {
         continue
     }
 
+    $buildTime = [Diagnostics.Stopwatch]::StartNew()
     Write-Host "Building the $label extension $version (a few minutes)..."
     Push-Location $extension
     try {
@@ -101,7 +126,7 @@ foreach ($ext in $extensions) {
         if ($LASTEXITCODE -ne 0 -and (Pin-Bevy)) { & $jd build }
         if ($LASTEXITCODE -ne 0) { throw "jd build failed" }
         $bundle = Join-Path $extension ".jackdaw/$id-$version.jdext"
-        & $jd extension pack --version $version --out $bundle
+        & $jd extension pack --version $version --key $key --out $bundle
         if ($LASTEXITCODE -ne 0) { throw "jd extension pack failed" }
         & $jd extension install $bundle --trust-publisher
         # The install keeps its own copy of the bundle.
@@ -111,5 +136,21 @@ foreach ($ext in $extensions) {
     }
     # `jd extension install` exits with 0 even when it refuses a bundle.
     if ((Installed $id) -ne $version) { throw "the $label extension $version was not installed" }
-    Write-Host "Installed the $label extension $version; it loads when the editor starts."
+    Write-Host ("Installed the $label extension $version in {0:N1}s; it loads when the editor starts." -f $buildTime.Elapsed.TotalSeconds)
+}
+
+if ($Open) {
+    Push-Location $root
+    try {
+        # Jackdaw keeps game component definitions as a schema, not native
+        # extension types. Prepare it before the first scene is opened.
+        if (-not (Test-Path -LiteralPath '.jackdaw/schema.json')) {
+            & $jd build --project $root
+            if ($LASTEXITCODE -ne 0) { throw 'cannot build the project type schema' }
+        }
+        & $jd open $root
+        if ($LASTEXITCODE -ne 0) { throw 'cannot open Jackdaw' }
+    } finally {
+        Pop-Location
+    }
 }

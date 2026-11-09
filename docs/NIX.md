@@ -92,20 +92,50 @@ cargo run
 # Jeu release sans éditeur ni overlay de développement
 cargo run --release --no-default-features
 
-# Éditeur Jackdaw : JACKDAW_OPEN_PROJECT est défini par le shell
-jackdaw
+# Éditeur Jackdaw, extensions et schéma du projet
+pwsh -NoProfile -File tools/editor_extension.ps1 -Open
 
 # Dioxus : le lanceur existant conserve le cache malgré son wrapper hotpatch
 pwsh -NoProfile -File tools/cached_command.ps1 dx serve --hot-patch --features hotpatch
 ```
 
-Pour les extensions Flow Graph et du projet, enregistrer le SDK Nix une fois,
-puis utiliser le script existant décrit dans le README :
+La commande `editor_extension.ps1 -Open` (également utilisée par le lancement
+VS Code « Éditeur (Jackdaw) ») enregistre automatiquement le SDK Nix avec
+`jd editor locate`, construit et installe Flow Graph et l’extension du projet,
+puis ouvre l’éditeur épinglé. Sans `-Open`, elle prépare seulement les extensions.
+Les sources inchangées ne sont pas recompilées. Les bundles de développement
+sont signés avec `.compiler-cache/jackdaw-publisher.pk8`, une clé locale ignorée
+par Git ; conserver une clé de publication distincte pour les releases.
+
+Sur macOS, le script transmet le répertoire de l’éditeur et `sdk/host-deps` dans
+`DYLD_FALLBACK_LIBRARY_PATH` aux outils SDK et à l’éditeur. Ne pas les mettre
+dans `DYLD_LIBRARY_PATH` : cela remplace aussi le libiconv système et casse
+Cargo dans le PIE. Le store reste en lecture seule ; les builds et le schéma
+sont dans `.jackdaw/` (également sous chaque crate d’extension), les bundles
+installés dans le répertoire utilisateur Jackdaw.
+
+Les composants du jeu (AnimationController, CharacterController, les caméras)
+restent des types décrits par `.jackdaw/schema.json`, extrait par `jd build`.
+Ils ne doivent pas activer les systèmes de gameplay dans l’éditeur. Au premier
+`-Open`, le script construit ce schéma avant d’ouvrir la scène ; ensuite le
+build automatique de Jackdaw le rafraîchit. Si le schéma manque, un lancement
+direct de `jackdaw` peut annoncer temporairement « type not in the registry ».
+L’extension du projet fournit le chargeur `StandardMaterial` des fichiers
+`.material.bsn`, en plus du correctif des cheveux du Ninja.
+
+Pour mesurer les deux compilateurs séparément (ils utilisent des daemons
+sccache distincts, avec le même bucket OVH) :
 
 ```sh
-jd editor locate "$PARKOUR_NIX_EDITOR_DIR"
-pwsh -NoProfile -File tools/editor_extension.ps1
+.compiler-cache/bin/sccache --show-stats
+RUSTUP_TOOLCHAIN=1.99.0 .compiler-cache/bin/sccache --show-stats
 ```
+
+Les assets privés doivent déjà être préparés. Pour réutiliser ceux d’un autre
+clone local sur Unix, des liens symboliques `assets/character` et
+`assets/animations` sont également ignorés par Git ; ne pas les copier ni les
+ajouter à Git. Le bouton Play lance un build **debug** puis le jeu avec le
+protocole PIE ; le premier build est distinct du cache d’artifacts Crane.
 
 `BEVY_ASSET_ROOT` désigne le répertoire courant au moment de l'entrée dans le
 shell : les assets sont lus et surveillés dans le clone. Entrer dans le shell

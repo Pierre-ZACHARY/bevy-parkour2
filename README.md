@@ -34,7 +34,7 @@ cover each loop; the equivalent commands, run from the project root:
 | VS Code config | Goal | Command |
 | --- | --- | --- |
 | Jeu (dev, hotpatch) | Hotpatch system code while the game runs | `BEVY_ASSET_ROOT=<project root> pwsh -File tools/cached_command.ps1 dx serve --hot-patch --features hotpatch` |
-| Éditeur (Jackdaw) | Jackdaw editor | `JACKDAW_OPEN_PROJECT=<project root> jackdaw` |
+| Éditeur (Jackdaw) | Jackdaw editor and project extensions | `pwsh -NoProfile -File tools/editor_extension.ps1 -Open` |
 | Jeu (debug) | Game under CodeLLDB, breakpoints | `cargo run` (add `--features dynamic` for Bevy as a DLL) |
 | Jeu (release) | Release build | `cargo run --release --no-default-features` |
 
@@ -439,14 +439,15 @@ flow_graph`). Selecting a Skeleton or Bone node shows the Ninja at rest,
 its skeleton drawn over it and the bones picked lit; Bone nodes pick from
 its bones' names. `crates/bevy_parkour2_editor` is the project's own extension:
 it adds what the editor needs to show the models as the game does, today
-the Ninja's hair fix (`crates/ninja_hair`), so Flow Graph stays generic.
+the Ninja's hair fix (`crates/ninja_hair`) and a loader for authored
+`.material.bsn` assets, so Flow Graph stays generic.
 
 Extensions load only into the precompiled editor (`jd editor install
 0.20.1-rc.1`, then `jd open` or
 `%LOCALAPPDATA%\jackdaw\editors\0.20.1-rc.1\jackdaw.exe` with
 `JACKDAW_OPEN_PROJECT` set); the cargo-installed `jackdaw` does not load
-them. The VS Code "Éditeur (Jackdaw)" configuration runs `jd open` after
-`tools/editor_extension.ps1` (PowerShell 7, `pwsh`), which builds and
+them. The VS Code "Éditeur (Jackdaw)" configuration runs
+`tools/editor_extension.ps1 -Open` (PowerShell 7, `pwsh`), which builds and
 installs each extension only when its sources (or those of the crates it
 builds on, or the editor's compiler) changed. It builds with the `jd` shipped
 with the editor `jackdaw.toml` pins: an editor loads only extensions built
@@ -465,10 +466,11 @@ jd extension install bevy_noodle_jackdaw_editor-0.1.3-x86_64-pc-windows-msvc.jde
 then restart the editor (a version installs once: bump it in
 `Cargo.toml` first). `jd extension keygen` creates the signing key
 once. The extension's `bevy` crate must match the SDK's exactly (0.20.0
-for 0.20.1-rc.1, its subcrates 0.20.1), or `bsn!` fails to compile: the
+for the current 0.20.1-rc.1 Nix SDK), or `bsn!` fails to compile: the
 crates an extension builds on ask for `bevy = "0.20"`, and the script
 pins the shim's lock (`.jackdaw/shim/Cargo.lock`) back to the editor's
 version when it moved. A standalone `cargo check` resolves Bevy 0.20.1.
+For Nix/macOS setup, project schemas and library paths, see [docs/NIX.md](docs/NIX.md).
 
 ## Performance overlay
 

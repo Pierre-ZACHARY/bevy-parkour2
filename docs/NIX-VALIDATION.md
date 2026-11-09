@@ -178,3 +178,86 @@ puis cette sortie est publiée et restaurée depuis OVH avec signatures valides.
 Le [guide d'utilisation](NIX.md) décrit les commandes et la distinction entre
 store Nix, cache Cargo et sccache, ainsi que les limites de distribution des
 binaires natifs liés à `/nix/store`.
+
+## Jackdaw : extensions et PIE sur macOS ARM, 9 novembre 2026
+
+Validation sur Apple M4 Pro, depuis le shell direnv/Nix, avec des liens
+symboliques ignorés pour `assets/character` et `assets/animations`. Aucun asset
+privé copié ou commité, aucune release du jeu construite. La machine exécutait
+aussi les builds d’autres agents : ces durées ne constituent pas un benchmark CI.
+
+La commande `pwsh -NoProfile -File tools/editor_extension.ps1 -Open` a été
+validée avec le schéma présent, puis après déplacement du schéma dans les
+artifacts locaux pour tester le premier lancement. Elle reconstruit le schéma
+avant d’ouvrir la scène :
+
+```text
+jackdaw build: ok (617 components); binary at …/.jackdaw/target/game/debug/bevy_parkour2, schema at …/.jackdaw/schema.json
+Loaded extension `bevy_noodle_jackdaw`
+Loaded extension `bevy_parkour2`
+Dylib loader: 4 loaded, 0 failed
+```
+
+Les cinq types auparavant absents sont dans le schéma ; Jackdaw conserve
+13 composants propres au projet après filtrage des types natifs de l’éditeur.
+Les deux derniers lancements ne contiennent plus « type not in the registry »
+ni « Could not find an asset loader ». Le chargeur de matériaux est fourni par
+l’extension du projet, les composants du jeu par le schéma (sans démarrer leurs
+systèmes de gameplay dans l’éditeur).
+
+Le Play a été déclenché par l’opérateur officiel `pie.play` via le protocole
+BRP local de Jackdaw, puis arrêté avec `pie.stop`. Preuves du premier essai :
+
+```text
+13:58:05.184967 PIE: pre-building the game in the background for a fast first Play
+14:12:12.450562 PIE: Play #1 launched, awaiting connection
+14:12:12.632389 PIE: Play #1 connected
+14:12:12.789493 PIE: refreshed project types from schema (13 project components)
+```
+
+L’API `jackdaw/status` confirme `pie: running`. Le second essai connecté a été
+maintenu environ 20 secondes sans crash. Toutes les fenêtres et tous les
+processus de jeu de ces essais ont ensuite été arrêtés. Le backend de l’éditeur
+est Metal ; l’erreur dyld `_libiconv` n’est pas revenue.
+
+| Mesure | Résultat |
+| --- | --- |
+| Flow Graph, premier build SDK | 1 min 38 s (compilation réussie ; premier pack refusé faute de clé, désormais générée localement) |
+| Extension projet, préparation des dépendances | 5 min 02 s, terminée par une erreur `TypePath` corrigée ensuite |
+| Extension projet après correction | 6,97 s de compilation ; 9,3 s avec pack et installation |
+| Script avec les deux extensions inchangées | 1,84 s |
+| Premier PIE, prébuild jusqu’au lancement | 14 min 07 s, compilation debug et extraction du schéma incluses |
+| Même premier PIE, attente après `pie.play` | 12 min 30 s (prébuild déjà en cours) |
+| Prébuild suivant avec artifacts présents | environ 6,24 s jusqu’au rafraîchissement du schéma |
+| Play suivant, opérateur jusqu’à connexion IPC | 0,12 s |
+
+Les compteurs finaux des daemons sccache courants, relevés séparément avec et
+sans `RUSTUP_TOOLCHAIN=1.99.0`, pointent tous deux sur le bucket OVH
+`yummy-blagg`, préfixe `/bevy-parkour2/v1/` :
+
+| Compilateur | Hits | Misses | Taux | Erreurs lecture/écriture cache |
+| --- | ---: | ---: | ---: | ---: |
+| Jeu, 1.97.1 | 9 | 195 (179 Rust, 16 C/C++) | 4,41 % | 0 / 0 |
+| SDK, 1.99.0 | 0 | 438 Rust | 0 % | 0 / 0 |
+
+Ces compteurs incluent les tentatives intermédiaires et les sondes du
+compilateur : ils affichent respectivement 1 et 10 `Compilation failures` ;
+ce ne sont pas des erreurs de cache. Le daemon SDK n’englobe pas le tout premier
+build Flow Graph effectué avant la correction de sélection du daemon. Les
+compilations finales et les deux lancements PIE réussissent. Les crates déjà
+fraîches dans Cargo ne produisent pas de requêtes sccache supplémentaires.
+
+Vérifications : quatre tests du helper de cache réussis, `rustfmt --check`,
+`git diff --check`, installation idempotente, chargement des extensions,
+régénération du schéma et deux connexions PIE. Windows et Linux n’ont pas été
+exécutés dans cet essai ; leurs branches de lancement sont conservées.
+
+Restent des avertissements upstream non bloquants : `COLOR_1` ignoré par le
+chargeur glTF, raccourcis du preset `classic` en conflit, et chemin
+`/Users/runner/work/_temp/…/sdk/native-libs` conservé dans les métadonnées de
+link du SDK officiel (le lien et le chargement réussissent). Le bundle ne
+contient pas `jd-mcp`, donc `jd mcp` échoue ; le BRP local fonctionne directement.
+
+Logs et compteurs complets dans `artifacts/nix-jackdaw-validation/` (ignoré par
+Git), notamment `jackdaw-final.log`, `jackdaw-first-open.log`,
+`jackdaw-middle.log` et `sccache-final.log`.

@@ -30,8 +30,8 @@
             "name": "Éditeur (Jackdaw)",
             "type": "node-terminal",
             "request": "launch",
-            "preLaunchTask": "Extensions Jackdaw (si modifiées)",
-            "command": "pwsh -NoProfile -File tools/cached_command.ps1 jd open",
+            "preLaunchTask": "Assets privés (setup)",
+            "command": "pwsh -NoProfile -File tools/editor_extension.ps1 -Open",
             "cwd": "${workspaceFolder}"
         },
         {

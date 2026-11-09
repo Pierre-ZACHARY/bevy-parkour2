@@ -45,16 +45,9 @@ pub fn daemon(root: &Path, config: &BTreeMap<String, String>) -> Option<u16> {
     // New daemon each hour bounds credential retention; idle daemons exit after
     // ten minutes. Never stop a daemon compiling another crate.
     (SystemTime::now().duration_since(UNIX_EPOCH).ok()?.as_secs() / 3600).hash(&mut hash);
-    let compiler = Command::new("rustup")
-        .args(["which", "rustc"])
-        .output()
-        .ok()?;
-    if !compiler.status.success() {
-        return None;
-    }
-    String::from_utf8_lossy(&compiler.stdout)
-        .trim()
-        .hash(&mut hash);
+    // Use the same Nix/SDK selection as the compiler facade, without asking
+    // rustup to install a toolchain outside the project.
+    super::active_compiler().ok()?.hash(&mut hash);
     let identity = hash.finish();
     let port = super::daemon_port(root, identity).ok()?;
     let listening = || {

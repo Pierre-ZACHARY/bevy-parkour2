@@ -21,3 +21,4 @@ publisher = "Pierre Zachary"
 bevy = "0.20"
 jackdaw_extension = { version = "=0.20.1-rc.1" }
 ninja_hair = { path = "../ninja_hair" }
+jackdaw_bsn = { version = "=0.20.1-rc.1" }
