@@ -4,8 +4,8 @@
 # of Git until the storage strategy (LFS or other) is decided.
 /asset_sources/
 # Hydrated copies from the authenticated private-assets submodule.
-/assets/character/
-/assets/animations/
+/assets/character
+/assets/animations
 /.jackdaw
 # Extension builds (`jd build`) and packs (`jd extension pack`).
 /crates/*/.jackdaw
