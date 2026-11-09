@@ -8,6 +8,203 @@ Le bundle officiel Jackdaw/SDK n'existe pas pour Linux ARM64 à cette version :
 l'éditeur est fourni sur Linux x86_64 et macOS ARM64. Linux ARM64 dispose du jeu,
 de Dioxus et des outils CI.
 
+## Parcours collaborateur macOS Apple Silicon (lecture seule)
+
+Prérequis : Nix avec flakes, accès Viewer au projet Infisical build et accès au
+sous-module d'assets privés. Aucun accès infrastructure ni droit d'écriture OVH
+n'est nécessaire. Depuis la racine du clone :
+
+```sh
+# Fournit Infisical sans construire le gros shell interactif.
+nix run .#infisical -- login --domain https://eu.infisical.com
+export PROJECT_CACHE_ACCESS=read-only
+nix run .#nix-cache -- pull --inputs .#devShells.aarch64-darwin.default
+nix develop
+```
+
+Avec direnv, mettre `export PROJECT_CACHE_ACCESS=read-only` dans `.envrc.local`,
+puis `direnv allow` : `.envrc` effectue le pull avant de charger le shell.
+Un échec d'authentification n'est plus mémorisé comme une récupération réussie.
+Le marqueur d'un pull réussi reste valable jusqu'au changement des entrées Nix ;
+après une nouvelle publication CI, `rm .direnv/ovh-pull-*` force une nouvelle tentative.
+
+Dans ce shell, hydrater les assets et récupérer la release :
+
+```sh
+git submodule update --init private-assets
+git -C private-assets lfs pull --include='assets/**'
+pwsh -NoProfile -File tools/setup_assets.ps1
+python3 tools/nix-cache.py pull .#game .#game-deps
+# Garde-fou : interdit toute construction locale si la release n'est pas publiée.
+nix build .#game --max-jobs 0 --option builders '' --option fallback false
+BEVY_ASSET_ROOT="$PWD" nix run .#game --max-jobs 0 --option builders ''
+
+# Éditeur fourni par le shell, avec le projet courant.
+jackdaw
+```
+
+Attendre une publication CI réussie pour **la même révision**, la même plateforme
+et les mêmes entrées Nix. Un miss du jeu ne doit pas être suivi aveuglément d'un
+build release local : le LTO peut durer une heure. Les modifications de `tools/`
+participent aussi au hash de la dérivation du jeu ; une release d'un ancien commit
+n'est donc pas automatiquement celle du checkout modifié.
+
+Le binaire de l'éditeur et son SDK sont en cache Nix. Le premier Play In Editor
+compile en revanche un autre graphe Cargo dans `.jackdaw/target`, avec ses flags,
+features et compilateur SDK : télécharger Jackdaw ne précompile pas ce graphe.
+`cargo run` compile le profil dev avec les features par défaut (`asset_watch`,
+`editor`, `perf_ui`). Il ne réutilise pas directement les artifacts Crane release.
+Les extensions Flow Graph restent une étape séparée, décrite plus bas.
+
+### Mesure du shell vierge, 9 novembre 2026
+
+Révision de référence `c15a174`, macOS ARM64, Nix 2.25. Store de destination vide
+`/private/tmp/collab-store` (sur macOS, `/tmp` est un lien symbolique que le store
+local Nix refuse). Le store système n'a pas été nettoyé ni utilisé comme source
+de la copie. La toolchain du helper et les sources de flake étaient déjà locales ;
+le temps ci-dessous n'inclut pas leur installation initiale ni le login Infisical.
+
+```sh
+nix run .#nix-cache -- pull --inputs .#devShells.aarch64-darwin.default \
+  --to-store /private/tmp/collab-store --report /private/tmp/shell-pull.json
+```
+
+| Mesure | Résultat |
+| --- | --- |
+| Entrées directes demandées au cache OVH | 31 hits, 0 miss |
+| Copie signée de leurs closures vers le store vide | 93,43 s |
+| Chemins dans la closure des entrées du shell | 233 |
+| Disponibles sur cache.nixos.org | 204, soit 3 504 344 704 octets NAR |
+| Restants disponibles sur OVH | 29, soit 6 049 838 760 octets NAR |
+| Absents des deux caches | 0 |
+| Audit des narinfo (12 requêtes parallèles) | 44,93 s |
+
+Les tailles NAR sont décompressées, pas des volumes réseau. L'audit essaie d'abord
+cache.nixos.org, puis OVH pour les 404 ; les 29 chemins ne représentent donc pas
+tout le contenu OVH. La copie chronométrée utilise exclusivement OVH, pas un
+mélange optimisé des deux caches. Aucun outil du shell ne doit être recompilé
+pour ces entrées : Dioxus, Jackdaw, les deux Rust et les outils sont disponibles.
+Le petit environnement du shell et le bootstrap de la façade sccache restent
+locaux. Cette mesure est celle des **entrées du shell**, pas de la closure de
+construction récursive du jeu ni d'un répertoire Cargo utilisateur prérempli.
+
+### Release et éditeur mesurés
+
+La CI Rust `42628426798`, job `build (macos-15, macos-arm64)`, a publié les sorties
+signées le 9 novembre à **14:02:35 UTC** (étape de publication : 12 s).
+Le pull lecteur `game` + `game-deps` de `c15a174` donne **2 hits, 0 miss en
+38,47 s**. Les sorties étaient déjà valides dans le store système : cette durée
+inclut l'évaluation et la vérification des métadonnées, pas un téléchargement neuf.
+Une seconde copie vers le store isolé récupère effectivement les sorties :
+**2 hits, 0 miss en 124,12 s** ; closure `game` + `game-deps` : **928 chemins
+valides, 4 833 863 520 octets NAR**. Cette copie intervient après celle du shell,
+donc ses dépendances communes sont déjà présentes dans le store isolé.
+Le build avec `--max-jobs 0 --option builders '' --option fallback false`
+termine en **6,87 s**, **aucune dérivation construite**.
+
+Les correctifs de ce parcours changent le hash Nix du jeu : pour reproduire la
+validation de la publication existante, utiliser la référence propre :
+
+```sh
+reference="git+file://$PWD?rev=c15a174fb48a8701afa638b160786d44cefa0a77"
+python3 tools/nix-cache.py pull "$reference#game" "$reference#game-deps"
+nix build "$reference#game" --no-link --max-jobs 0 --option builders ''
+BEVY_ASSET_ROOT="$PWD" nix run "$reference#game" --max-jobs 0 --option builders ''
+```
+
+Le test du jeu utilise `BEVY_ASSET_ROOT=/Users/pzachary/bevy-parkour2` sur la machine
+partagée : fenêtre Metal, chargement des assets et modèles GLTF, aucune erreur
+`Path not found … scene.bsn`, puis arrêt du processus après 25 s de commande.
+Ce chemin est propre à la machine de mesure ; utiliser son clone hydraté ailleurs.
+Les liens locaux vers `assets/character` et `assets/animations` sont ignorés par Git,
+y compris lorsqu'il s'agit de liens symboliques plutôt que de répertoires.
+
+Jackdaw crée sa fenêtre Metal environ **3,1 s après son premier log** et ouvre la
+scène du projet, sans compilation de son exécutable. Le test l'arrête après
+20 s. Limites : extensions utilisateur déjà présentes dans le profil partagé,
+cinq types du jeu absents du schéma sans build du projet, et erreur de loader
+`materials/ground.material.bsn`. Ce smoke test valide le démarrage de l'éditeur,
+pas une session PIE complète ni un profil utilisateur entièrement vierge.
+
+### Mesures Cargo en lecture seule
+
+Commandes exécutées depuis ce worktree, différent du clone principal, avec
+`PROJECT_CACHE_ACCESS=read-only` et quatre jobs, sources Cargo déjà locales :
+
+```sh
+cargo build -j 4
+cargo xtask test --suites xtask --jobs 4
+```
+
+| Mesure | Temps commande | Hits OVH | Misses OVH | Taux hits/(hits+misses) | Écritures OVH |
+| --- | --- | --- | --- | --- | --- |
+| Jeu dev, target initialement vide | 974,91 s (16 min 14,91 s) | 291 | 206 | 58,6 % | 0 |
+| xtask test, après le build dev | 65,30 s | 48 | 190 | 20,2 % | 0 |
+| Démarrage automatique du projet Jackdaw, interrompu avec l'éditeur | pas un build complet | 0 | 11 | 0 % | 0 |
+
+Le premier pilote xtask en dev prend 31,38 s ; la commande complète exécute
+32 tests, tous réussis, et en ignore 5. Les 48 hits du delta xtask sont natifs
+(C/C++/assembleur), pas Rust. Les suites ci ont donc encore beaucoup à compiler.
+Le jeu dev obtient 254 hits Rust et 37 hits natifs ; **206 requêtes cacheables
+OVH manquent**, auxquelles s'ajoutent les binaires, proc-macros et autres appels
+non cacheables. Ce nombre mesure le manque observé, pas le nombre de crates
+que le seul changement de profil pourrait expliquer.
+
+Les compteurs sont cumulés sur les ports sccache de ce worktree, car le démon
+change à l'heure UTC et selon le contexte du compilateur. Le démon distinct du
+lancement Jackdaw est séparé de la ligne dev ; xtask est mesuré par différence
+avant/après, sans compilation Cargo concurrente dans ce worktree. Les autres
+builds de la machine partagée continuent : ces temps ne sont pas des benchmarks
+sur machine dédiée. Pendant dev, un échec temporaire Infisical provoque aussi
+**1 miss et 1 écriture sur disque local**, puis OVH redevient accessible. Ne pas
+présenter le total de toutes les écritures locales comme égal à zéro.
+
+Les statistiques JSON des démons OVH confirment `effective_cache_mode=ReadOnly`
+et `cache_writes=0`. sccache rapporte également des `cache_write_errors`
+(206 pour dev, 190 pour xtask) malgré ce mode ; ces compteurs ne sont pas des
+écritures réussies. Les statistiques usuelles après la commande peuvent ne voir
+qu'un des démons : collecter leurs JSON via les ports de `.compiler-cache/ports/`
+si un build traverse une rotation horaire.
+
+`SCCACHE_BASEDIRS` contient bien le worktree et `/Users/pzachary/.cargo/` ; des
+hits Rust existent donc dans ce nouveau chemin. Cette observation ne mesure
+pas isolément l'effet de BASEDIRS : aucun second build sans cette variable n'a
+été fait et le bucket contient plusieurs producteurs. Les flags/profils, cwd et
+environnements distincts restent des causes d'incompatibilité possibles.
+Les logs et JSON bruts sont conservés localement dans le répertoire ignoré
+`artifacts/collaborator-bootstrap/` ; les résultats ne nécessitent aucun secret
+d'infrastructure. Le répertoire `target/debug` occupe environ 8,2 Go avant la fin
+du build, indépendamment du store Nix.
+
+### Profils CI et limites de sccache
+
+| Commande | Profil et features | Réutilisation attendue |
+| --- | --- | --- |
+| `cargo run` / `cargo build` | dev, defaults : asset_watch/editor/perf_ui ; dépendances opt-level 3 | Cache dev compatible requis |
+| `cargo xtask test` | pilote xtask en dev ; suites en ci, dépendances opt-level 1 | Ne préchauffe pas tout le jeu dev |
+| `cargo xtask coverage` | coverage, opt-level 0, instrumentation | Clés distinctes |
+| `cargo xtask build --targets macos-arm64` | release, sans defaults, distribution + macos-vulkan (+ sentry si configuré) | Pas le graphe dev/PIE |
+| `nix build .#game` | Crane release, distribution, sans defaults ni sccache | Closure Nix, pas le target Cargo du clone |
+| Play In Editor Jackdaw | target `.jackdaw/target`, flags/SDK spécifiques | Cache distinct à mesurer séparément |
+
+La CI actuelle ne préchauffe **pas tout le jeu en profil dev**. Elle compile le
+pilote xtask en dev, les suites en ci/coverage et les distributions en release.
+La façade fournit automatiquement le checkout et Cargo home dans
+`SCCACHE_BASEDIRS`. Cela ne garantit pas des hits Rust entre deux chemins : cwd,
+variables Cargo, flags, features, compilateur et profil participent encore aux
+clés (voir la mesure de changement de chemin dans [REMOTE-CACHE.md](REMOTE-CACHE.md)).
+Des hits dans un nouveau worktree prouvent une réutilisation partielle, pas que
+chaque objet publié par GitHub est portable vers ce chemin.
+
+Recommandation : ajouter dans un job macOS de confiance un préchauffage
+`nix develop -c cargo build --locked` avec les defaults et le profil dev inchangés,
+puis vérifier les hits depuis **un second checkout** avant de promettre un gain
+collaborateur. Prévoir séparément le build PIE avec le SDK Jackdaw et ses flags.
+Un simple alignement de dev sur ci réduit l'optimisation des dépendances et
+change l'expérience interactive : ne pas le faire sans comparer les performances.
+Aucun workflow n'a été déclenché pour cette mesure et aucun préchauffage CI
+supplémentaire n'est activé par cette documentation.
+
 ## Première utilisation
 
 Installer Nix avec les fonctions `nix-command` et `flakes` activées, puis depuis

@@ -39,6 +39,29 @@ class ShellInputsTests(unittest.TestCase):
     def test_missing_input_exit_one_is_a_cache_candidate(self):
         self.check_format(True, validity_status=1)
 
+    def validity(self, status, stdout, destination=None, stderr=''):
+        """Last step only: the validity query against the selected store."""
+        derivations = [{SHELL: {'inputs': {DRV: {'outputs': ['out']}}}},
+                       {DRV: {'outputs': {'out': OUT}}}]
+        with patch.object(cache, 'shown_derivations', side_effect=derivations), \
+             patch.object(cache, 'run', side_effect=[subprocess.CompletedProcess([], 0, stdout=SHELL),
+                                                     subprocess.CompletedProcess([], status, stdout, stderr)]) as run:
+            return cache.shell_inputs('.#devShells.aarch64-darwin.default', {}, destination), run.call_args.args[0]
+
+    def test_isolated_destination_store_is_queried(self):
+        paths, command = self.validity(1, OUT + '\n', '/private/tmp/collab-store')
+        self.assertEqual(paths, [OUT])
+        self.assertEqual(command[1:3], ['--store', '/private/tmp/collab-store'])
+
+    def test_valid_paths_are_skipped(self):
+        paths, command = self.validity(0, '')
+        self.assertEqual(paths, [])
+        self.assertNotIn('--store', command)
+
+    def test_store_error_is_not_an_empty_success(self):
+        with self.assertRaises(subprocess.CalledProcessError):
+            self.validity(1, '', stderr='store error')
+
     def test_store_failure_is_not_silently_ignored(self):
         with patch.object(cache, 'run', side_effect=[
             subprocess.CompletedProcess([], 0, stdout=SHELL),

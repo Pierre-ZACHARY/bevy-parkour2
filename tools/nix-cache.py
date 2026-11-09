@@ -85,7 +85,7 @@ def shown_derivations(paths, env):
     return result
 
 
-def shell_inputs(item, env):
+def shell_inputs(item, env, to_store=None):
     """Outputs a shell needs; CI publishes them in its `nix develop` profile closure."""
     drv = run(["nix", "eval", "--raw", item + ".drvPath"], env=env, capture_output=True).stdout.strip()
     wanted = next(iter(shown_derivations([drv], env).values()))["inputs"]
@@ -96,7 +96,8 @@ def shell_inputs(item, env):
         for name in wanted.get(drv_path, {}).get("outputs", []):
             if name in info["outputs"]:
                 paths.append(info["outputs"][name])
-    result = run(["nix-store", "--check-validity", "--print-invalid", *paths],
+    destination = ["--store", to_store] if to_store else []
+    result = run(["nix-store", *destination, "--check-validity", "--print-invalid", *paths],
                  env=env, capture_output=True, check=False)
     invalid = result.stdout.split()
     # Some Nix versions return 1 for invalid paths: those are precisely the
@@ -126,7 +127,7 @@ def main():
     public_key = (ROOT / "nix/cache-public-key").read_text().strip()
     env = credentials(args.mode, metadata)
     if args.inputs:
-        paths = sorted({path for item in args.installables for path in shell_inputs(item, env)})
+        paths = sorted({path for item in args.installables for path in shell_inputs(item, env, args.to_store)})
     else:
         paths = [store_path(item, env) for item in args.installables]
     settings = {"region": config["region"], "scheme": "https", "endpoint": config["endpoint"]}
