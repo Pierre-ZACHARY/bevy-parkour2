@@ -60,25 +60,38 @@ let
 
   # Runtime/licensed assets are read from the checkout, never published with
   # the public binary derivation. Keep non-Rust include_str!/shader inputs.
+  sourceFilter =
+    toolPaths: path: type:
+    let
+      rel = lib.removePrefix (toString self + "/") (toString path);
+      top = builtins.head (lib.splitString "/" rel);
+    in
+    builtins.elem top [
+      "src"
+      "crates"
+      "vendor"
+      "examples"
+    ]
+    || rel == "tools"
+    || lib.any (dir: rel == dir || lib.hasPrefix (dir + "/") rel) toolPaths
+    || builtins.elem rel [
+      "Cargo.toml"
+      "Cargo.lock"
+    ];
+  # The game only needs the workspace members under tools/ (Cargo loads their
+  # manifests). Cache, CI and editor scripts stay out, so editing them keeps
+  # the game derivation, its OVH entry and its thin-LTO build unchanged.
+  workspaceTools = builtins.filter (lib.hasPrefix "tools/") (builtins.fromTOML (
+    builtins.readFile ../Cargo.toml
+  )).workspace.members;
   src = lib.cleanSourceWith {
     src = self;
-    filter =
-      path: type:
-      let
-        rel = lib.removePrefix (toString self + "/") (toString path);
-        top = builtins.head (lib.splitString "/" rel);
-      in
-      builtins.elem top [
-        "src"
-        "crates"
-        "vendor"
-        "examples"
-        "tools"
-      ]
-      || builtins.elem rel [
-        "Cargo.toml"
-        "Cargo.lock"
-      ];
+    filter = sourceFilter workspaceTools;
+  };
+  # xtask tests may read any tooling file; they are cheap to rebuild.
+  toolingSrc = lib.cleanSourceWith {
+    src = self;
+    filter = sourceFilter [ "tools" ];
   };
   common = {
     inherit src;
@@ -351,7 +364,7 @@ let
     interactive:
     craneLib.devShell (
       {
-        inputsFrom = [ game ];
+        inputsFrom = [ gameBinary ];
         packages =
           with pkgs;
           [
@@ -433,7 +446,7 @@ in
   checks = {
     inherit game;
     xtask = craneLib.cargoTest {
-      inherit src;
+      src = toolingSrc;
       cargoArtifacts = null;
       pname = "parkour-xtask-tests";
       version = "0.1.0";
