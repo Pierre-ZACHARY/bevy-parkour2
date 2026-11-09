@@ -124,35 +124,61 @@ let
       cargoCheckCommand = "true";
     }
   );
-  gameLauncher = pkgs.writeShellScript "parkour-nix-launcher" ''
-    set -eu
-    asset_root="''${BEVY_ASSET_ROOT:-$PWD}"
-    if [ ! -f "$asset_root/assets/scene.bsn" ]; then
-      echo 'Run from the project root with hydrated assets, or set BEVY_ASSET_ROOT.' >&2
-      exit 1
-    fi
-    # Distribution builds resolve assets beside current_exe(), even when
-    # BEVY_ASSET_ROOT is set. Keep licensed/mutable assets outside the store.
-    runtime=$(${pkgs.coreutils}/bin/mktemp -d -t parkour-nix.XXXXXXXX)
-    trap '${pkgs.coreutils}/bin/rm -rf -- "$runtime"' EXIT
-    ${pkgs.coreutils}/bin/cp --reflink=auto "$PARKOUR_NIX_GAME_BINARY" "$runtime/bevy_parkour2"
-    ${pkgs.coreutils}/bin/ln -s "$(${pkgs.coreutils}/bin/realpath "$asset_root/assets")" "$runtime/assets"
-    "$runtime/bevy_parkour2" "$@"
-  '';
-  game = craneLib.buildPackage (
+  gameLauncher = pkgs.writeShellScript "parkour-nix-launcher" (
+    ''
+      set -eu
+      asset_root="''${BEVY_ASSET_ROOT:-$PWD}"
+      if [ ! -f "$asset_root/assets/scene.bsn" ]; then
+        echo 'Run from the project root with hydrated assets, or set BEVY_ASSET_ROOT.' >&2
+        exit 1
+      fi
+      # Distribution builds resolve assets beside current_exe(), even when
+      # BEVY_ASSET_ROOT is set. Keep licensed/mutable assets outside the store.
+      runtime=$(${pkgs.coreutils}/bin/mktemp -d -t parkour-nix.XXXXXXXX)
+      trap '${pkgs.coreutils}/bin/rm -rf -- "$runtime"' EXIT
+    ''
+    + (
+      if isDarwin then
+        ''
+          # macOS distribution builds read <exe>/../Resources/assets (bundle layout).
+          ${pkgs.coreutils}/bin/mkdir "$runtime/MacOS" "$runtime/Resources"
+          exe="$runtime/MacOS/bevy_parkour2"
+          assets="$runtime/Resources/assets"
+        ''
+      else
+        ''
+          exe="$runtime/bevy_parkour2"
+          assets="$runtime/assets"
+        ''
+    )
+    + ''
+      ${pkgs.coreutils}/bin/cp --reflink=auto "$PARKOUR_NIX_GAME_BINARY" "$exe"
+      ${pkgs.coreutils}/bin/ln -s "$(${pkgs.coreutils}/bin/realpath "$asset_root/assets")" "$assets"
+      "$exe" "$@"
+    ''
+  );
+  # The compiled release, cached on its own: launcher changes only rebuild the
+  # small wrapper below, not the LTO build of the game.
+  gameBinary = craneLib.buildPackage (
     common
     // {
       inherit cargoArtifacts;
       meta.mainProgram = "bevy_parkour2";
-      postFixup = ''
-        mkdir -p "$out/libexec"
-        mv "$out/bin/bevy_parkour2" "$out/libexec/bevy_parkour2"
-        makeWrapper ${gameLauncher} "$out/bin/bevy_parkour2" \
-          --set PARKOUR_NIX_GAME_BINARY "$out/libexec/bevy_parkour2" \
-          --prefix ${libraryPathVariable} : ${lib.makeLibraryPath editorLibraries}
-      '';
     }
   );
+  game =
+    pkgs.runCommand "bevy-parkour2-${gameBinary.version}"
+      {
+        nativeBuildInputs = [ pkgs.makeWrapper ];
+        meta.mainProgram = "bevy_parkour2";
+      }
+      ''
+        mkdir -p "$out/libexec"
+        ln -s ${gameBinary}/bin/bevy_parkour2 "$out/libexec/bevy_parkour2"
+        makeWrapper ${gameLauncher} "$out/bin/bevy_parkour2" \
+          --set PARKOUR_NIX_GAME_BINARY ${gameBinary}/bin/bevy_parkour2 \
+          --prefix ${libraryPathVariable} : ${lib.makeLibraryPath editorLibraries}
+      '';
 
   # Reuse the project's checked-in version/checksum pins, while giving ELF
   # tools a Nix interpreter and RPATH (upstream Linux downloads cannot run
@@ -394,6 +420,7 @@ in
       jd
       ;
     game-deps = cargoArtifacts;
+    game-unwrapped = gameBinary;
     nix-cache = nixCache;
   }
   // lib.optionalAttrs isLinux { mesa = pkgs.mesa; }

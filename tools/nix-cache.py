@@ -66,21 +66,34 @@ def store_path(item, env):
     return path
 
 
+def shown_derivations(paths, env):
+    """`nix derivation show`, normalized across its JSON formats (Nix 2.25 to 2.35+):
+    full store paths as keys and outputs, `inputDrvs` or `inputs.drvs`."""
+    shown = json.loads(run(["nix", "derivation", "show", *paths], env=env, capture_output=True).stdout)
+    shown = shown.get("derivations", shown) if isinstance(shown.get("version"), int) else shown
+    full = lambda path: path if path.startswith("/nix/store/") else "/nix/store/" + path
+    result = {}
+    for drv_path, info in shown.items():
+        inputs = info.get("inputDrvs", info.get("inputs", {}).get("drvs", {}))
+        result[full(drv_path)] = {
+            "inputs": {full(path): wanted for path, wanted in inputs.items()},
+            "outputs": {name: full(output["path"]) for name, output in info["outputs"].items()
+                        if output.get("path")},
+        }
+    return result
+
+
 def shell_inputs(item, env):
     """Outputs a shell needs; CI publishes them in its `nix develop` profile closure."""
     drv = run(["nix", "eval", "--raw", item + ".drvPath"], env=env, capture_output=True).stdout.strip()
-    shown = json.loads(run(["nix", "derivation", "show", drv], env=env, capture_output=True).stdout)
-    wanted = next(iter(shown.values()))["inputDrvs"]
+    wanted = next(iter(shown_derivations([drv], env).values()))["inputs"]
     if not wanted:
         return []
-    shown = json.loads(run(["nix", "derivation", "show", *wanted], env=env, capture_output=True).stdout)
     paths = []
-    for drv_path, info in shown.items():
-        key = drv_path if drv_path in wanted else "/nix/store/" + drv_path
-        for name in wanted.get(key, {}).get("outputs", []):
-            output = info["outputs"].get(name, {}).get("path")
-            if output:
-                paths.append(output if output.startswith("/nix/store/") else "/nix/store/" + output)
+    for drv_path, info in shown_derivations(list(wanted), env).items():
+        for name in wanted.get(drv_path, {}).get("outputs", []):
+            if name in info["outputs"]:
+                paths.append(info["outputs"][name])
     invalid = run(["nix-store", "--check-validity", "--print-invalid", *paths],
                   env=env, capture_output=True).stdout.split()
     return sorted(set(invalid))

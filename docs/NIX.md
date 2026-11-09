@@ -185,6 +185,10 @@ Le lanceur du package Nix place temporairement l'exécutable à côté d'un lien
 vers les assets du clone, car le mode distribution cherche les assets à côté
 de son exécutable. Il nettoie ce répertoire à la sortie. Aucun asset licencié
 n'est copié dans le store ; le binaire natif se trouve dans `result/libexec/`.
+Sur macOS, le lanceur reproduit la structure d'un bundle (`MacOS/` et
+`Resources/assets`) que le mode distribution y attend. Le binaire compilé est
+la sortie séparée `game-unwrapped` : modifier le lanceur ne reconstruit que ce
+petit wrapper, pas la release LTO.
 
 Crane sépare les dépendances compilées (`game-deps`) du jeu (`game`). Un
 changement dans `src/` reconstruit le jeu en réutilisant les dépendances. Les
