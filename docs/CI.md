@@ -68,8 +68,10 @@ packaging and retains failures from all phases. `--sonar` also publishes the
 analysis; `--coverage` remains accepted for compatibility. See [SonarCloud](SONAR.md).
 The GitHub
 workflow runs these phases in independent jobs so failed builds cannot suppress
-test results. The final `gate` command consumes GitHub's `needs` JSON from
-`XTASK_JOB_RESULTS` and rejects missing, failed or cancelled jobs. Packaging may
+test results. Le contrôle final vérifie directement les résultats `needs` de GitHub, sans
+checkout ni préparation Nix/Cargo. Sa politique correspond à la commande locale
+`cargo xtask gate`, qui lit `XTASK_JOB_RESULTS` : tout job obligatoire absent,
+en échec ou annulé bloque la validation. Packaging may
 be skipped only on a public pull request, which receives no licensed assets;
 lint and the four asset-independent test suites still have to succeed.
 See [repository and asset access](GITHUB.md).
@@ -206,3 +208,8 @@ desktop backend on suitable hardware and open the Web package in a WebGPU
 browser before claiming rendered validation for that platform.
 
 See [local validation results](VALIDATION.md) for observed checks and remaining limits.
+
+## Mesures de durée CI
+
+Le [relevé des durées et des optimisations](CI-DURATION.md) décrit les mesures
+par job, les gains estimés, les limites des caches et la validation attendue.

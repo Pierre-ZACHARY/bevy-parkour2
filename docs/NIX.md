@@ -218,13 +218,22 @@ Les téléchargements xtask utilisent `.xtask-cache` en CI, via `XTASK_CACHE_DIR
 pour que le nettoyage du cache Cargo ne supprime pas leurs reçus et exécutables.
 En local, le défaut reste `target/xtask-cache` ; `--cache-dir` est prioritaire.
 
-GitHub restaure et sauvegarde `/nix` avec `cache-nix-action`, par architecture,
-job et empreinte des fichiers de dépendances. Les PR peuvent lire le cache de
-leur branche de base ; seules les exécutions hors PR le sauvegardent. Le job
-Linux de build compile aussi `game` et `game-deps` avec Crane. Un GC est tenté
-au-delà de 8 Gio avant sauvegarde ; les GC roots restent prioritaires, et les
-limites de stockage du service continuent de s'appliquer. Les commandes xtask
-continuent à utiliser sccache et à produire les rapports habituels.
+Les jobs disposant de l'écrivain OVH chargent les identifiants avant l'action
+Nix, puis exécutent `nix run .#nix-cache -- pull --inputs <shell-ci>` avant le
+premier `nix develop`. Ils ne restaurent ni ne sauvegardent le store GitHub.
+Un échec de lecture OVH reste visible, mais permet la construction habituelle
+avec cache.nixos.org et les sources. Les signatures Nix restent obligatoires.
+Les jobs sans écrivain, dont les PR sans secrets, gardent `cache-nix-action` :
+clé `nix-v2` partagée par OS/architecture et empreinte des entrées Nix/Cargo,
+sans job ni SHA du commit ; seules les exécutions hors PR sauvegardent.
+Le seuil de GC de ce repli reste à 8 Gio ; les GC roots restent prioritaires.
+Aucune purge des anciennes entrées GitHub n'est déclenchée par cette migration.
+
+Les artifacts Cargo des commandes dans le clone restent dans `rust-cache` :
+les closures Crane ne remplacent pas ces répertoires. Le job Apple Silicon,
+qui ne construit que des dérivations pures, désactive ce cache Cargo via
+`cargo-cache: 'false'`. Le contrôle final des jobs utilise directement les
+résultats GitHub et ne prépare plus de compilateur ni de cache.
 
 Les lancements manuels sur une branche nécessitent une autorisation de cette
 branche dans l'environnement GitHub `build` pour récupérer les assets privés.
@@ -286,7 +295,8 @@ sont déjà : les closures complètes sont donc publiées, en zstd ; les chemins
 déjà présents ne sont pas renvoyés. Les pull requests ne reçoivent aucun secret.
 L'utilisateur OVH `cache-ci-writer` peut lire, écrire et lister le cache, sans
 suppression. Les collaborateurs gardent l'identité Infisical en lecture seule.
-Les jobs sauvegardent également leurs caches Nix/Cargo dans GitHub.
+Les jobs sans écrivain gardent le repli du store GitHub ; les commandes Cargo
+dans le clone conservent leur cache d’artifacts GitHub.
 
 Aucun secret ni asset privé ne doit entrer dans une dérivation publiée.
 La propagation d'une modification de politique OVH peut être différée : vérifier

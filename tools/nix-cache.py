@@ -25,7 +25,8 @@ ROOT = Path(__file__).resolve().parents[1]
 
 
 def run(command, **kwargs):
-    return subprocess.run(command, check=True, text=True, **kwargs)
+    kwargs.setdefault("check", True)
+    return subprocess.run(command, text=True, **kwargs)
 
 
 def secret(name, project, path, metadata):
@@ -76,7 +77,8 @@ def shown_derivations(paths, env):
     for drv_path, info in shown.items():
         inputs = info.get("inputDrvs", info.get("inputs", {}).get("drvs", {}))
         result[full(drv_path)] = {
-            "inputs": {full(path): wanted for path, wanted in inputs.items()},
+            "inputs": {full(path): wanted if isinstance(wanted, dict) else {"outputs": wanted}
+                       for path, wanted in inputs.items()},
             "outputs": {name: full(output["path"]) for name, output in info["outputs"].items()
                         if output.get("path")},
         }
@@ -94,8 +96,15 @@ def shell_inputs(item, env):
         for name in wanted.get(drv_path, {}).get("outputs", []):
             if name in info["outputs"]:
                 paths.append(info["outputs"][name])
-    invalid = run(["nix-store", "--check-validity", "--print-invalid", *paths],
-                  env=env, capture_output=True).stdout.split()
+    result = run(["nix-store", "--check-validity", "--print-invalid", *paths],
+                 env=env, capture_output=True, check=False)
+    invalid = result.stdout.split()
+    # Some Nix versions return 1 for invalid paths: those are precisely the
+    # outputs this pull needs. Do not turn a genuine store failure into a hit.
+    if result.returncode and (result.returncode != 1 or not invalid):
+        result.check_returncode()
+    if not set(invalid).issubset(paths):
+        raise RuntimeError("Unexpected output from Nix store validity check")
     return sorted(set(invalid))
 
 

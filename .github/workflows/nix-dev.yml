@@ -40,7 +40,6 @@ jobs:
         with:
           lfs: false
           persist-credentials: false
-      - uses: ./.github/actions/nix
       - name: Enable shared OVH cache writes (trusted environments)
         # build/release environment secrets, managed by Pulumi; PRs get none.
         if: github.event_name != 'pull_request'
@@ -60,6 +59,10 @@ jobs:
             echo "PARKOUR_OVH_CACHE_WRITER=1"
           } >> "$GITHUB_ENV"
           echo "sccache and Nix publication write to the shared OVH cache."
+      - uses: ./.github/actions/nix
+        with:
+          # This job only builds pure Nix derivations, not checkout Cargo targets.
+          cargo-cache: 'false'
       - name: Restore the development shell inputs from OVH
         # Same pull as .envrc: Dioxus, Jackdaw and the SDK toolchain published
         # by previous runs, instead of rebuilding them when GitHub evicted the store.
@@ -79,6 +82,10 @@ jobs:
             wasm-bindgen --version
             wasm-opt --version
           '
+      - name: Restore signed Apple Silicon Crane outputs from OVH
+        if: env.PARKOUR_OVH_CACHE_WRITER == '1'
+        continue-on-error: true
+        run: nix develop .#ci -c python3 tools/nix-cache.py pull .#game .#game-deps .#checks.aarch64-darwin.xtask
       - name: Build the native Crane release and run isolated xtask checks
         run: nix build .#game .#game-deps .#checks.aarch64-darwin.xtask --print-build-logs
       - name: Publish the signed Apple Silicon shell and Crane outputs to OVH

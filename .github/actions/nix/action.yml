@@ -1,5 +1,9 @@
 name: Nix environment
-description: Install Nix and restore the project's Crane/store cache
+description: Install Nix and restore the CI shell from OVH or the GitHub fallback
+inputs:
+  cargo-cache:
+    description: Restore Cargo artifacts for commands executed in the checkout
+    default: 'true'
 runs:
   using: composite
   steps:
@@ -14,16 +18,24 @@ runs:
       with:
         extra_nix_config: |
           experimental-features = nix-command flakes
-    - uses: nix-community/cache-nix-action@b16f249a0248efec86dd9d4224cb75f1ffa48bcc
+    # The signed OVH cache is authoritative for trusted writers. Keep GitHub
+    # as a credential-free fallback, without duplicating the store in both.
+    - if: env.PARKOUR_OVH_CACHE_WRITER != '1'
+      uses: nix-community/cache-nix-action@b16f249a0248efec86dd9d4224cb75f1ffa48bcc
       with:
-        primary-key: nix-v1-${{ runner.os }}-${{ runner.arch }}-${{ github.job }}-${{ hashFiles('flake.lock', 'rust-toolchain.toml', '**/Cargo.lock', '**/Cargo.toml', 'tools/xtask/tools.lock.json') }}-${{ github.sha }}
+        primary-key: nix-v2-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('flake.lock', 'flake.nix', 'nix/*.nix', 'rust-toolchain.toml', '**/Cargo.lock', '**/Cargo.toml', 'tools/xtask/tools.lock.json') }}
         restore-prefixes-first-match: |
-          nix-v1-${{ runner.os }}-${{ runner.arch }}-${{ github.job }}-${{ hashFiles('flake.lock', 'rust-toolchain.toml', '**/Cargo.lock', '**/Cargo.toml', 'tools/xtask/tools.lock.json') }}-
-          nix-v1-${{ runner.os }}-${{ runner.arch }}-${{ github.job }}-
-          nix-v1-${{ runner.os }}-${{ runner.arch }}-
+          nix-v2-${{ runner.os }}-${{ runner.arch }}-
         save: ${{ github.event_name != 'pull_request' }}
         gc-max-store-size-linux: 8G
         gc-max-store-size-macos: 8G
+    - name: Restore the shared CI shell inputs from OVH
+      if: env.AWS_ACCESS_KEY_ID != '' && env.AWS_SECRET_ACCESS_KEY != ''
+      continue-on-error: true
+      shell: bash
+      run: |
+        system=$(nix eval --impure --raw --expr builtins.currentSystem)
+        nix run .#nix-cache -- pull --inputs ".#devShells.$system.ci"
     - name: Prepare and retain the shared CI environment
       shell: bash
       run: |
@@ -34,7 +46,8 @@ runs:
           echo "PARKOUR_NIX_RUSTC=$PARKOUR_NIX_RUSTC" >> "$GITHUB_ENV"
           echo "PARKOUR_NIX_SCCACHE=$PARKOUR_NIX_SCCACHE" >> "$GITHUB_ENV"
         '
-    - uses: Swatinem/rust-cache@d1527c8f67ef9af357290475d4af4b0fab8f12e0
+    - if: inputs.cargo-cache == 'true'
+      uses: Swatinem/rust-cache@d1527c8f67ef9af357290475d4af4b0fab8f12e0
       with:
         key: nix-${{ github.job }}-${{ hashFiles('flake.lock', 'flake.nix', 'nix/*.nix', 'tools/xtask/tools.lock.json') }}
         cache-directories: .xtask-cache
