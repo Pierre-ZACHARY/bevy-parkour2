@@ -422,6 +422,7 @@ in
     game-deps = cargoArtifacts;
     game-unwrapped = gameBinary;
     nix-cache = nixCache;
+    inherit infisical;
   }
   // lib.optionalAttrs isLinux { mesa = pkgs.mesa; }
   // lib.optionalAttrs hasEditor { inherit jackdaw; };
