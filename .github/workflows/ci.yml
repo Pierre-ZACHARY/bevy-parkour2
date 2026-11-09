@@ -267,20 +267,6 @@ jobs:
         with:
           key: build-${{ matrix.os }}
           cache-directories: .xtask-cache
-      - name: Restore signed Crane outputs from OVH
-        if: runner.os != 'Windows' && (env.PARKOUR_OVH_CACHE_WRITER == '1' || ((github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/tags/v')) && vars.INFISICAL_BUILD_IDENTITY_ID != ''))
-        run: nix develop .#ci -c python3 tools/nix-cache.py pull .#game .#game-deps
-      - name: Build the cached Crane release derivation
-        if: runner.os != 'Windows'
-        run: nix build .#game .#game-deps --print-build-logs
-      - name: Publish signed Nix outputs to OVH
-        # The CI shell profile and Crane outputs, with their full closures:
-        # a binary cache only accepts paths whose references it already holds.
-        if: ${{ !cancelled() && runner.os != 'Windows' && env.PARKOUR_OVH_CACHE_WRITER == '1' }}
-        continue-on-error: true
-        env:
-          NIX_CACHE_SIGNING_KEY: ${{ secrets.NIX_CACHE_SIGNING_KEY }}
-        run: nix develop .#ci -c python3 tools/nix-cache.py push .compiler-cache/nix-ci-profile .#game .#game-deps
       - name: Set up project compiler cache
         if: runner.os == 'Windows'
         shell: pwsh
@@ -322,8 +308,67 @@ jobs:
             artifacts/*/tests/**
             artifacts/*/coverage/**
             artifacts/*/clippy/**
+            artifacts/*/timings/**
           retention-days: 7
           if-no-files-found: warn
+
+  # Pure Nix releases serve collaborators; xtask packages use a different Cargo
+  # graph (macos-vulkan, and Sentry for tags). Run both independently.
+  crane:
+    environment: ${{ github.ref_type == 'tag' && 'release' || 'build' }}
+    if: github.event_name != 'pull_request'
+    permissions:
+      contents: read
+      id-token: write
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-24.04, ubuntu-24.04-arm, macos-15]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          lfs: false
+          persist-credentials: false
+      - name: Load shared cache access from Infisical (trusted jobs)
+        if: (github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/tags/v')) && github.event_name != 'pull_request' && vars.INFISICAL_BUILD_IDENTITY_ID != ''
+        shell: pwsh
+        run: ./tools/infisical-ci.ps1 -Scope cache -IdentityId '${{ vars.INFISICAL_BUILD_IDENTITY_ID }}'
+      - name: Enable shared OVH cache writes (trusted environments)
+        # build/release environment secrets, managed by Pulumi; PRs get none.
+        if: github.event_name != 'pull_request'
+        shell: bash
+        env:
+          WRITER_ACCESS_KEY_ID: ${{ secrets.OVH_CACHE_WRITER_ACCESS_KEY_ID }}
+          WRITER_SECRET_ACCESS_KEY: ${{ secrets.OVH_CACHE_WRITER_SECRET_ACCESS_KEY }}
+        run: |
+          if [ -z "$WRITER_ACCESS_KEY_ID" ] || [ -z "$WRITER_SECRET_ACCESS_KEY" ]; then
+            echo "No OVH cache writer in this environment; caches stay read-only/local."
+            exit 0
+          fi
+          {
+            echo "AWS_ACCESS_KEY_ID=$WRITER_ACCESS_KEY_ID"
+            echo "AWS_SECRET_ACCESS_KEY=$WRITER_SECRET_ACCESS_KEY"
+            echo "SCCACHE_S3_RW_MODE=READ_WRITE"
+            echo "PARKOUR_OVH_CACHE_WRITER=1"
+          } >> "$GITHUB_ENV"
+          echo "sccache and Nix publication write to the shared OVH cache."
+      - uses: ./.github/actions/nix
+        with:
+          cargo-cache: 'false'
+      - name: Restore signed Crane outputs from OVH
+        if: (env.PARKOUR_OVH_CACHE_WRITER == '1' || ((github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/tags/v')) && vars.INFISICAL_BUILD_IDENTITY_ID != ''))
+        run: nix develop .#ci -c python3 tools/nix-cache.py pull .#game .#game-deps
+      - name: Build the cached Crane release derivation
+        run: nix build .#game .#game-deps --print-build-logs
+      - name: Publish signed Nix outputs to OVH
+        # The CI shell profile and Crane outputs, with their full closures:
+        # a binary cache only accepts paths whose references it already holds.
+        if: ${{ !cancelled() && env.PARKOUR_OVH_CACHE_WRITER == '1' }}
+        continue-on-error: true
+        env:
+          NIX_CACHE_SIGNING_KEY: ${{ secrets.NIX_CACHE_SIGNING_KEY }}
+        run: nix develop .#ci -c python3 tools/nix-cache.py push .compiler-cache/nix-ci-profile .#game .#game-deps
 
   sentry-release:
     environment: release
@@ -333,7 +378,7 @@ jobs:
       contents: read
       id-token: write
     if: github.ref_type == 'tag'
-    needs: [build]
+    needs: [build, crane]
     runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
@@ -394,7 +439,7 @@ jobs:
   required:
     name: All required checks
     if: always()
-    needs: [lint, tests, build, sentry-release, sonar]
+    needs: [lint, tests, build, crane, sentry-release, sonar]
     runs-on: ubuntu-24.04
     steps:
       # Same policy as `cargo xtask gate`, without installing Nix or compiling
@@ -403,6 +448,7 @@ jobs:
         if: >-
           always() && (needs.lint.result != 'success' || needs.tests.result != 'success' ||
           (needs.build.result != 'success' && !(github.event_name == 'pull_request' && needs.build.result == 'skipped')) ||
+          (needs.crane.result != 'success' && !(github.event_name == 'pull_request' && needs.crane.result == 'skipped')) ||
           (needs.sentry-release.result != 'success' && needs.sentry-release.result != 'skipped') ||
           (needs.sonar.result != 'success' && needs.sonar.result != 'skipped'))
         run: exit 1

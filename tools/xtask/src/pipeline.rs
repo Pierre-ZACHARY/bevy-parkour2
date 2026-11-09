@@ -415,12 +415,14 @@ pub fn gate(input: &str) -> Result<()> {
 fn gate_for_event(input: &str, event: &str) -> Result<()> {
     let value: serde_json::Value = serde_json::from_str(input)?;
     let jobs = value.as_object().context("job results must be an object")?;
-    for required in ["lint", "tests", "build"] {
+    for required in ["lint", "tests", "build", "crane"] {
         anyhow::ensure!(
             jobs.get(required)
                 .and_then(|v| v["result"].as_str())
                 .is_some_and(|result| result == "success"
-                    || (required == "build" && event == "pull_request" && result == "skipped")),
+                    || (matches!(required, "build" | "crane")
+                        && event == "pull_request"
+                        && result == "skipped")),
             "required job {required} did not succeed"
         );
     }
@@ -438,8 +440,8 @@ fn gate_for_event(input: &str, event: &str) -> Result<()> {
 #[cfg(test)]
 mod gate_tests {
     #[test]
-    fn public_pr_allows_only_the_deliberately_skipped_private_packaging_job() {
-        let input = r#"{"lint":{"result":"success"},"tests":{"result":"success"},"build":{"result":"skipped"}}"#;
+    fn public_pr_allows_only_the_deliberately_skipped_build_jobs() {
+        let input = r#"{"lint":{"result":"success"},"tests":{"result":"success"},"build":{"result":"skipped"},"crane":{"result":"skipped"}}"#;
         assert!(super::gate_for_event(input, "pull_request").is_ok());
         assert!(super::gate_for_event(input, "push").is_err());
         assert!(
@@ -457,15 +459,41 @@ mod gate_tests {
         );
     }
     #[test]
+    fn crane_is_required_and_blocks_finalization_on_non_pr_runs() {
+        for event in ["push", "workflow_dispatch", "pull_request"] {
+            for result in [
+                None,
+                Some("failure"),
+                Some("cancelled"),
+                Some("skipped"),
+                Some("success"),
+            ] {
+                let mut jobs = serde_json::json!({
+                    "lint": {"result": "success"}, "tests": {"result": "success"},
+                    "build": {"result": "success"}
+                });
+                if let Some(result) = result {
+                    jobs["crane"] = serde_json::json!({"result": result});
+                }
+                assert_eq!(
+                    super::gate_for_event(&jobs.to_string(), event).is_ok(),
+                    result == Some("success")
+                        || (event == "pull_request" && result == Some("skipped")),
+                    "event={event}, result={result:?}"
+                );
+            }
+        }
+    }
+    #[test]
     fn missing_skipped_and_failed_jobs_block() {
         for input in [
             r#"{}"#,
-            r#"{"lint":{"result":"success"},"tests":{"result":"skipped"},"build":{"result":"success"}}"#,
-            r#"{"lint":{"result":"success"},"tests":{"result":"failure"},"build":{"result":"success"}}"#,
+            r#"{"lint":{"result":"success"},"tests":{"result":"skipped"},"build":{"result":"success"},"crane":{"result":"success"}}"#,
+            r#"{"lint":{"result":"success"},"tests":{"result":"failure"},"build":{"result":"success"},"crane":{"result":"success"}}"#,
         ] {
             assert!(super::gate(input).is_err());
         }
-        super::gate(r#"{"lint":{"result":"success"},"tests":{"result":"success"},"build":{"result":"success"}}"#).unwrap();
+        super::gate(r#"{"lint":{"result":"success"},"tests":{"result":"success"},"build":{"result":"success"},"crane":{"result":"success"}}"#).unwrap();
     }
 }
 
