@@ -71,7 +71,11 @@ workflow runs these phases in independent jobs so failed builds cannot suppress
 test results. Le contrôle final vérifie directement les résultats `needs` de GitHub, sans
 checkout ni préparation Nix/Cargo. Sa politique correspond à la commande locale
 `cargo xtask gate`, qui lit `XTASK_JOB_RESULTS` : tout job obligatoire absent,
-en échec ou annulé bloque la validation. Packaging may
+en échec ou annulé bloque la validation. Les jobs obligatoires sont `lint`,
+`tests`, `build` et `crane` ; `build` et `crane` peuvent être ignorés en PR.
+La matrice `crane` construit et publie les releases Nix en parallèle du packaging,
+sans réutilisation directe de ces binaires dans les ZIP. La finalisation Sentry
+attend les deux matrices. Voir les [mesures de durée](CI-DURATION.md). Packaging may
 be skipped only on a public pull request, which receives no licensed assets;
 lint and the four asset-independent test suites still have to succeed.
 See [repository and asset access](GITHUB.md).

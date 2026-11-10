@@ -136,3 +136,131 @@ la disponibilité des runners et l'évolution du quota. Le transfert OVH, son
 bootstrap Python et les clés de cache froides peuvent réduire les gains estimés.
 La branche ne dispose pas de l'environnement build : ces mesures après changement
 restent à réaliser par le propriétaire.
+
+## Packaging release : run chaud du 9 novembre, `5e4e49b`
+
+Source : [run 42696335380](https://github.com/Pierre-ZACHARY/bevy-parkour2/actions/runs/42696335380),
+API des jobs et artifacts `builds-*` (`summary.json`, `summary.md`, `logs/`).
+Tous les jobs sont verts. Durée murale approximative : 56 minutes.
+
+| Job build | Total | Action Nix | Pull Crane OVH | Build Crane | Publication | Commande xtask |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: |
+| macOS ARM64 | 55:50 | 7:17 | 8:47 | 0:03 | 0:06 | 39:06 |
+| Linux x64 + WebGPU | 21:52 | 6:31 | 3:36 | 0:01 | 0:05 | 11:19 |
+| Linux ARM64 | 19:19 | 4:04 | 3:01 | 0:01 | 0:05 | 11:16 |
+| Windows x64 | 39:56 | — | — | — | — | 36:53 |
+
+| Sous-étape xtask (artifacts) | macOS | Linux x64 | WebGPU | Linux ARM64 | Windows |
+| --- | ---: | ---: | ---: | ---: | ---: |
+| Cargo du jeu | 38:04,88 | 5:10,53 | 3:12,00 | 7:36,52 | 28:55,37 |
+| Bindgen / wasm-opt | — | — | 0:12,77 / 1:56,90 | — | — |
+| Cargo + export assets | 0:16,12 | 0:07,47 | 0:10,87 | 1:34,88 | 3:58,01 |
+
+Sur macOS, le launcher prend 1,50 s et les trois signatures 2,30 s cumulées.
+Il reste environ 41 s dans la commande globale (pilote xtask, outils, copies,
+inventaires et ZIP non chronométrés auparavant). Les logs du jeu finissent par
+`Finished release ... in 38m 04s` : les assets ne sont pas le goulot. Les logs
+ne permettent pas de séparer précisément codegen, thin LTO et édition de liens.
+`cargo build --timings` fournit désormais un HTML par cible dans
+`artifacts/<run>/timings/`, téléversé avec les rapports. La durée du packaging
+(inventaire, manifeste, ZIP et hash) remplace le zéro fictif ; l'étape `stage`
+mesure les copies et la préparation du bundle, **incluant** les sous-étapes
+launcher/signatures et la publication des symboles quand elles existent.
+Il ne faut donc pas additionner `stage` avec ses sous-étapes.
+
+### Pourquoi ne pas copier directement `game-unwrapped` ?
+
+| Contrat | Crane | xtask release |
+| --- | --- | --- |
+| Features natives | `--no-default-features --features distribution` | identique sur Linux, `distribution,macos-vulkan` sur macOS |
+| Profil natif | `release` | `release` (thin LTO, codegen-units=1) |
+| Cible Cargo | native implicite | triple natif explicite, répertoire Cargo séparé |
+| macOS minimum | 13.0 | 13.0 |
+| Canal officiel | aucune configuration Sentry | feature `sentry`, DSN/release publics, debug=2, strip=none, symboles publiés |
+| Runtime Nix | références et closure Nix | bundle xtask ; bibliothèques Nix possibles également |
+
+`game` est un wrapper de lancement, pas le binaire à mettre dans une archive.
+Même `game-unwrapped` ne respecte pas le contrat macOS Vulkan ni celui des tags.
+Contrôle local en lecture seule du binaire Crane de `5e4e49b` déjà présent :
+`otool -L` référence `/nix/store/jaixg82zxmqjbn2s6grpd31jq0yygzc1-libiconv-115.100.1/lib/libiconv.2.dylib`.
+Le problème de closure est donc aussi concret sur macOS.
+Sur Linux local, les features correspondent mais cela ne prouve pas la
+portabilité : l'interpréteur ELF/RPATH et les bibliothèques doivent être audités
+et embarqués ou réécrits, puis testés sans Nix. La mise en garde de NIX.md
+s'applique déjà aux paquets xtask construits dans le shell Nix ; cette modification
+ne résout pas cette limitation existante. Ajouter seulement `--prebuilt-binary`
+permettrait de contourner ces garanties sans preuve de provenance/configuration.
+Cette option n'est donc pas ajoutée.
+
+Les sources locales recompilent après restauration du cache Cargo ; sccache ne
+cache pas la crate finale de type binaire. Un taux de hits des requêtes cacheables
+ne mesure pas ce travail. Le dernier relevé sccache du job macOS indique même
+0 hit/0 miss et un appel `crate-type (bin)` : ne pas présenter « 100 % » comme
+une mesure de couverture de l'ensemble de la compilation.
+
+### Changement et gains attendus
+
+Les trois plateformes Crane passent dans une matrice `crane` indépendante des
+quatre jobs de packaging. Elle garde restauration, construction et publication
+signée du jeu, des dépendances et du profil CI. Elle ne récupère ni assets privés
+ni cache Cargo du checkout. `required` exige son succès ; elle peut être ignorée
+uniquement en PR, comme `build`. La finalisation Sentry attend **build et crane**,
+comme lorsque ces phases étaient dans le même job. La commande de packaging,
+les profils, features, configurations Sentry, assets et signatures restent identiques.
+
+Le packaging macOS évite ainsi 8:56 de travail préalable ; Linux x64 3:42,
+Linux ARM64 3:07. Projection chaude sans attente supplémentaire de runners :
+macOS **46:54**, Linux x64 **18:10**, ARM64 **16:12**. Les nouveaux jobs Crane
+chauds devraient rester autour de 8–17 minutes avec leur préparation Nix ;
+ils ne seraient plus limitants. Les tests Windows tooling duraient déjà 47:15 :
+le workflow entier pourrait passer d'environ 56 à **47–48 minutes** (8–9 minutes,
+14–16 %), sans additionner les gains Linux. Ce sont des projections, pas des
+mesures après modification. Trois runners supplémentaires et trois préparations
+de shell augmentent le coût et peuvent créer une file d'attente. Un miss Crane
+ou un build froid peut encore devenir le chemin critique ; les changements de
+Rust/xtask peuvent invalider la dérivation existante dès le premier run.
+
+### Autres pistes, sans modifier les livrables
+
+- Le pull macOS copie **865 chemins**, dont **856 `cargo-package-*`**.
+  Première copie à 20:55:37, dernière copie démarrée (`game-deps`) à 21:00:09,
+  retour des hits à 21:04:09. Les quatre dernières minutes comprennent donc
+  notamment le gros transfert/import final, sans permettre d'isoler son débit.
+  Ne tirer que `game` suffirait à exécuter un jeu Nix déjà en cache, mais ici
+  `game-deps` reste nécessaire au contrat de construction/publication Crane.
+  La séparation le retire entièrement du runner de packaging.
+- Le helper utilise déjà un seul `nix copy` pour toutes les closures. Le Nix
+  local annonce `max-substitution-jobs=16` et `http-connections=25` ; les petits
+  chemins paraissant séquentiels ne prouvent pas qu'augmenter ces valeurs
+  accélérera les imports. Mesurer débit réseau, décompression et écritures store
+  avant de changer ce parallélisme ; aucun réglage global n'est modifié.
+- Sur Windows l'export prend 3:58, dont **3:55 de compilation** d'asset-export.
+  Garder son cache Cargo devient plus utile que paralléliser la conversion des
+  assets. Son éviction GitHub et le coût de liaison du jeu restent à traiter.
+  Ajouter un gros cache complet concurrent augmenterait la pression sur le quota.
+- Supprimer thin LTO ou augmenter codegen-units pour `local` changerait le binaire
+  livré et ses performances. Ce serait un profil rapide explicite à évaluer
+  séparément (`--profile ci` existe déjà), pas une substitution silencieuse du
+  profil release. Les tags conservent toutes leurs garanties actuelles.
+
+Un run réel doit confirmer les durées, la disponibilité des runners, les hits
+Crane avec les nouvelles sources, la publication des trois closures, le gate
+après échec/annulation/PR et l'attente de Crane avant finalisation Sentry. Les
+HTML Cargo permettront d'attribuer le coût à la crate finale ; ils ne séparent
+pas toutes les passes internes LLVM. Aucun build release local du jeu n'est
+nécessaire pour ces validations de workflow et de rapports.
+
+Validation locale de ce changement : `nix flake check --all-systems --no-build`
+réussi ; `actionlint .github/workflows/ci.yml` réussi et contrôle de tous les
+workflows limité au SC2016 préexistant de nix-dev.yml ; `cargo test --locked -p
+xtask --profile ci --jobs 2` : 33 réussis, 5 tests d'intégration ignorés ;
+9 tests Python du helper cache réussis. Expression du gate GitHub comparée à
+la politique attendue sur 46 875 combinaisons d'événement/statuts, y compris
+résultat absent. Le chemin du HTML `--timings` a été vérifié avec un build de
+xtask uniquement, sans compiler le jeu en release.
+`cargo xtask lint --jobs 2` est également réussi sur les cinq suites (jeu,
+xtask, graph, asset-export et noodle : formatage et Clippy). Les assets privés
+ont uniquement été lus via les deux liens symboliques ignorés autorisés dans
+ce worktree. Aucun push Git, déclenchement de workflow, changement d'infrastructure,
+publication OVH, GC Nix, changement de configuration globale ou écriture dans
+le clone principal n'a été effectué.

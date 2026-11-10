@@ -13,6 +13,7 @@ use std::{
     io::Write,
     path::Path,
     process::Command,
+    time::Instant,
 };
 
 #[derive(Serialize, Deserialize)]
@@ -149,6 +150,7 @@ fn build_one(
         .current_dir(&run.root)
         .args([
             "build",
+            "--timings",
             "--locked",
             "-p",
             "bevy_parkour2",
@@ -196,10 +198,20 @@ fn build_one(
     if target == Target::MacosArm64 {
         cargo.env("MACOSX_DEPLOYMENT_TARGET", "13.0");
     }
-    anyhow::ensure!(
-        process::run(run, &format!("{}-compile", target.name()), &mut cargo)?,
-        "compilation failed"
-    );
+    let timing = target_dir.join("cargo-timings/cargo-timing.html");
+    if timing.is_file() {
+        fs::remove_file(&timing)?;
+    }
+    let compiled = process::run(run, &format!("{}-compile", target.name()), &mut cargo)?;
+    // Keep Cargo's per-crate timing report even on compilation failure. This
+    // measures the final crate separately from dependency cache restoration.
+    if timing.is_file() {
+        let timings = run.dir.join("timings");
+        fs::create_dir_all(&timings)?;
+        fs::copy(timing, timings.join(format!("{}.html", target.name())))?;
+    }
+    anyhow::ensure!(compiled, "compilation failed");
+    let staging_started = Instant::now();
     let package_dir = run.dir.join("packages").join(target.name());
     fs::create_dir_all(&package_dir)?;
     let stage = package_dir.join(if target == Target::MacosArm64 {
@@ -338,6 +350,7 @@ fn build_one(
     } else {
         stage.join("assets")
     };
+    record_duration(run, target, "stage", staging_started);
     let mut export = Command::new("cargo");
     sentry::configure(&mut export, None);
     export
@@ -373,6 +386,7 @@ fn build_one(
         )?,
         "binary asset export failed"
     );
+    let packaging_started = Instant::now();
     let texture_report: serde_json::Value =
         serde_json::from_slice(&fs::read(asset_directory.join("asset-export.json"))?)?;
     let manifest = Manifest {
@@ -430,16 +444,21 @@ fn build_one(
             archive.file_name().unwrap().to_string_lossy()
         ),
     )?;
-    run.steps.push(crate::report::Step {
-        name: format!("{}-package", target.name()),
-        status: crate::report::Status::Pass,
-        seconds: 0.,
-        exit_code: None,
-        log: None,
-        detail: Some(archive.strip_prefix(&run.dir)?.to_string_lossy().into()),
-    });
+    record_duration(run, target, "package", packaging_started);
+    run.steps.last_mut().unwrap().detail =
+        Some(archive.strip_prefix(&run.dir)?.to_string_lossy().into());
     run.save()?;
     Ok(())
+}
+fn record_duration(run: &mut Run, target: Target, phase: &str, started: Instant) {
+    run.steps.push(crate::report::Step {
+        name: format!("{}-{phase}", target.name()),
+        status: crate::report::Status::Pass,
+        seconds: started.elapsed().as_secs_f64(),
+        exit_code: None,
+        log: None,
+        detail: None,
+    });
 }
 fn package_version(root: &Path) -> Result<String> {
     let value: toml::Value = toml::from_str(&fs::read_to_string(root.join("Cargo.toml"))?)?;
