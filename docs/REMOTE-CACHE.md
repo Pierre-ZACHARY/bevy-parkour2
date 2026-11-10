@@ -246,3 +246,21 @@ Infrastructure: [infra/README.md](../infra/README.md).
 - [sccache S3](https://github.com/mozilla/sccache/blob/v0.19.0/docs/S3.md)
 - [sccache Rust key construction](https://github.com/mozilla/sccache/blob/v0.19.0/src/compiler/rust.rs)
 - [CodeLLDB Cargo environment/cwd](https://github.com/vadimcn/codelldb/blob/master/MANUAL.md#cargo-support)
+
+## Diagnostic et préchauffage : enquête du 9 novembre 2026
+
+Le détail actualisé est dans [CI-DURATION.md](CI-DURATION.md#enquête-windows-du-9-novembre--éviction-et-clés-rust)
+et la section collaborateurs de [NIX.md](NIX.md#préchauffage-dev--limite-de-partage-des-clés).
+Les misses Windows restent à attribuer par crate ; le prochain run conserve
+les clés/résultats sccache et les empreintes des entrées, sans publier le log
+brut ni les valeurs d'environnement. Les DLL de proc-macros et les sources de
+build scripts font partie des entrées à comparer, pas des causes déjà prouvées.
+
+`tools/cache-key-probe.py` reproduit localement les limites de relocalisation
+Rust : cwd, `CARGO_MANIFEST_DIR` et `CARGO_TARGET_DIR` peuvent chacun changer
+la clé malgré `SCCACHE_BASEDIRS`. Le cache disque de cette sonde est temporaire
+et isolé ; elle n'écrit jamais dans OVH. Aucun préchauffage dev supplémentaire
+n'est activé tant que le partage effectif entre runner et collaborateur n'est
+pas établi. Les commandes Cargo locales de cette enquête utilisent
+`PROJECT_CACHE_ACCESS=read-only` ; cette politique conserve les misses au lieu
+de peupler le cache partagé avec les chemins du worktree.

@@ -454,6 +454,9 @@ fn run() -> Result<i32> {
         // game's compiler for extensions built with the editor's pinned rustc.
         let compiler = active_compiler()?;
         let compiler = compiler.trim();
+        if let Err(error) = record_inputs(compiler, &args) {
+            eprintln!("project compiler cache diagnostics: {error}");
+        }
         // sccache 0.19 expands Rust response files into a Windows command
         // line. Large web-sys feature/check-cfg lists then fail with OS 206,
         // including metadata-only checks that cannot be cached anyway.
@@ -481,6 +484,57 @@ fn run() -> Result<i32> {
     }
     strip_management(&mut command);
     Ok(command.status()?.code().unwrap_or(1))
+}
+
+// Opt-in CI evidence, one file per compiler process; no credential values.
+fn record_inputs(compiler: &str, args: &[OsString]) -> Result<()> {
+    use std::io::{Read, Write};
+    let Some(directory) = env::var_os("PROJECT_CACHE_DIAGNOSTICS") else {
+        return Ok(());
+    };
+    let directory = PathBuf::from(directory);
+    fs::create_dir_all(&directory)?;
+    let mut file = fs::File::create(directory.join(format!("inputs-{}.txt", std::process::id())))?;
+    writeln!(
+        file,
+        "compiler={compiler:?}\ncwd={:?}\nargs={args:?}",
+        env::current_dir()?
+    )?;
+    // Match sccache's Cargo inputs, but fingerprint values rather than dumping
+    // the environment. Never include registry credentials, even as a digest.
+    let mut variables: Vec<_> = env::vars_os()
+        .filter(|(k, _)| {
+            let k = k.to_string_lossy();
+            (k.starts_with("CARGO_")
+                && !k.starts_with("CARGO_REGISTRIES_")
+                && !k.starts_with("CARGO_REGISTRY_"))
+                || k == "OUT_DIR"
+        })
+        .collect();
+    variables.sort();
+    for (key, value) in variables {
+        let mut digest = DefaultHasher::new();
+        value.hash(&mut digest);
+        writeln!(file, "env {key:?}={:016x}", digest.finish())?;
+    }
+    // Content fingerprints distinguish unstable proc-macro DLLs/rlibs from
+    // argument/environment changes. Stream files to bound memory usage.
+    for pair in args.windows(2).filter(|pair| pair[0] == "--extern") {
+        if let Some((name, path)) = pair[1].to_string_lossy().split_once('=') {
+            let mut input = fs::File::open(path)?;
+            let mut digest = DefaultHasher::new();
+            let mut buffer = [0u8; 65536];
+            loop {
+                let count = input.read(&mut buffer)?;
+                if count == 0 {
+                    break;
+                }
+                digest.write(&buffer[..count]);
+            }
+            writeln!(file, "extern {name} {path:?}={:016x}", digest.finish())?;
+        }
+    }
+    Ok(())
 }
 
 fn strip_management(command: &mut Command) {

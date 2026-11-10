@@ -165,12 +165,17 @@ jobs:
       - uses: Swatinem/rust-cache@d1527c8f67ef9af357290475d4af4b0fab8f12e0
         if: runner.os == 'Windows'
         with:
+          save-if: ${{ github.ref == 'refs/heads/main' }}
           key: tests-${{ matrix.target }}-${{ matrix.suite_group }}
           cache-directories: .xtask-cache
       - name: Set up project compiler cache
         if: runner.os == 'Windows'
         shell: pwsh
         run: ./tools/setup_cache.ps1
+      - name: Record Windows compiler cache inputs
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: ./tools/cache-diagnostics.ps1 -Start
       - run: nix develop .#ci -c cargo xtask ${{ matrix.command }} ${{ github.event_name == 'pull_request' && '--suites xtask,graph,asset-export,noodle' || '' }}
         if: runner.os != 'Windows'
         env:
@@ -186,6 +191,11 @@ jobs:
         run: |
           if [ "$RUNNER_OS" = Windows ]; then ./.compiler-cache/bin/sccache --show-stats
           else nix develop .#ci -c ./.compiler-cache/bin/sccache --show-stats; fi
+      - name: Export Windows compiler cache diagnostics
+        if: always() && runner.os == 'Windows'
+        continue-on-error: true
+        shell: pwsh
+        run: ./tools/cache-diagnostics.ps1
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
         if: always()
         with:
@@ -197,6 +207,8 @@ jobs:
             artifacts/*/tests/**
             artifacts/*/coverage/**
             artifacts/*/clippy/**
+            .compiler-cache/diagnostics/**
+          include-hidden-files: true
           retention-days: 7
           if-no-files-found: warn
 
@@ -265,12 +277,17 @@ jobs:
       - uses: Swatinem/rust-cache@d1527c8f67ef9af357290475d4af4b0fab8f12e0
         if: runner.os == 'Windows'
         with:
+          save-if: ${{ github.ref == 'refs/heads/main' }}
           key: build-${{ matrix.os }}
           cache-directories: .xtask-cache
       - name: Set up project compiler cache
         if: runner.os == 'Windows'
         shell: pwsh
         run: ./tools/setup_cache.ps1
+      - name: Record Windows compiler cache inputs
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: ./tools/cache-diagnostics.ps1 -Start
       - name: Load official build client configuration
         if: github.ref_type == 'tag'
         shell: pwsh
@@ -297,6 +314,11 @@ jobs:
         run: |
           if [ "$RUNNER_OS" = Windows ]; then ./.compiler-cache/bin/sccache --show-stats
           else nix develop .#ci -c ./.compiler-cache/bin/sccache --show-stats; fi
+      - name: Export Windows compiler cache diagnostics
+        if: always() && runner.os == 'Windows'
+        continue-on-error: true
+        shell: pwsh
+        run: ./tools/cache-diagnostics.ps1
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
         if: always()
         with:
@@ -309,6 +331,8 @@ jobs:
             artifacts/*/coverage/**
             artifacts/*/clippy/**
             artifacts/*/timings/**
+            .compiler-cache/diagnostics/**
+          include-hidden-files: true
           retention-days: 7
           if-no-files-found: warn
 

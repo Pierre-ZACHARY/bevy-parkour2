@@ -550,3 +550,82 @@ Références : [Crane](https://crane.dev/),
 [buildDepsOnly](https://crane.dev/API.html#cranelibbuilddepsonly),
 [cache Nix GitHub](https://github.com/nix-community/cache-nix-action),
 [cache S3 Nix](https://nix.dev/manual/nix/latest/store/types/s3-binary-cache-store.html).
+
+### Préchauffage dev : limite de partage des clés
+
+Le profil interactif est `dev` (jeu opt-level 1, dépendances 3, debug complet),
+avec `asset_watch,editor,perf_ui` par défaut. CI teste en `ci` (debug 1,
+dépendances opt-level 1), couvre en `coverage` (instrumentation et opt-level 0),
+et distribue en release sans ces features. Le build Windows de distribution
+ajoute `-C target-feature=+crt-static`. Ces unités ne préchauffent donc pas
+systématiquement `cargo run`. Le lancement de xtask lui-même utilise déjà dev,
+mais sa compilation séparée a une résolution de features différente du jeu.
+
+Commandes qui seraient nécessaires pour un writer dev, séparément (pas avec
+`--workspace`, qui peut unifier autrement les features) :
+
+```sh
+cargo build --locked -p xtask
+cargo build --locked -p bevy_parkour2
+```
+
+Il faudrait des jobs indépendants par OS/architecture, sans `needs` dans le gate,
+réservés à l'écrivain OVH hors PR ; ils ne doivent pas lancer le jeu. Toutefois,
+**aucun job dev supplémentaire n'est ajouté à ce stade**, car sccache 0.19 ne
+rend pas ces clés Rust portables vers un checkout quelconque. Changer uniquement
+`SCCACHE_BASEDIRS` ne réécrit ni le cwd ni les variables Cargo dans ces clés.
+Normaliser aveuglément ces variables peut également changer `env!` et les
+chemins de debug embarqués ; ce n'est pas une correction sûre du frontal.
+
+La sonde reproductible suivante utilise une bibliothèque minuscule, deux chemins
+et un daemon/cache disque isolé ; elle n'utilise jamais OVH et n'arrête aucun
+daemon de compilation du projet :
+
+```sh
+direnv exec . python3 tools/cache-key-probe.py
+```
+
+Résultat local sur macOS ARM, toolchain Nix du projet : répétition identique =
+1 hit ; changement du seul cwd = clé différente et miss ; changement du seul
+`CARGO_MANIFEST_DIR` = clé différente et miss. Les deux racines sont pourtant
+présentes dans `SCCACHE_BASEDIRS`. `artifacts/cache-key-probe.json` contient les
+clés et les statistiques cumulatives, sans secrets. La sonde vérifie aussi
+l'ajout de `CARGO_TARGET_DIR`, qui est haché par sccache.
+
+Cela concerne les crates du workspace/vendor (chemins du checkout), et les
+crates registry/git quand le chemin Cargo home diffère entre collaborateur et
+runner. La liste exacte dépend des unités déjà présentes dans OVH : le taux
+58,6 % du jeu ou 20,2 % de xtask ne suffit pas à l'inférer. Le même OS, la même
+architecture, le compilateur, les features et les flags restent nécessaires.
+Les shells Nix `default` et `ci` utilisent le Rust du projet, mais leurs chemins
+Cargo/checkouts ne sont pas garantis identiques sur deux machines.
+
+Jackdaw Play écrit dans `.jackdaw/target/game/debug`. `--out-dir` est exclu de
+la clé sccache, mais une variable `CARGO_TARGET_DIR` différente ne l'est pas ;
+le chemin de sortie seul ne prouve donc ni partage ni séparation des clés.
+Il reste à capturer ses arguments/environnement réels pour comparer au Cargo
+dev ordinaire. Les extensions SDK utilisent une autre ABI/toolchain et Dioxus
+hotpatch ajoute des features/flags : aucune promesse de préchauffage pour ces
+unités. Il faut d'abord une solution de clés Rust relogeables validée, ou un
+environnement de chemins contrôlés accepté, avant d'ajouter ce coût CI.
+
+Mesure dans le worktree de cette enquête (9–10 novembre, macOS ARM) :
+`PROJECT_CACHE_ACCESS=read-only cargo build --locked -p xtask --timings` réussit
+en **29,63 s** ; `PROJECT_CACHE_ACCESS=read-only cargo build --locked
+-p bevy_parkour2 --jobs 4 --timings` réussit en **17 min 45 s**, avec les features
+par défaut, sans lancer le jeu. Les rapports Cargo sont dans
+`target/cargo-timings/` ; le log jeu a été gardé dans
+`/tmp/sccache-study/dev-build.log`. Un relevé intermédiaire du daemon commun
+aux deux commandes indiquait 111 hits Rust / 119 misses Rust et 25 hits natifs ;
+ce n'est **pas** le bilan du jeu ni une comparaison isolée xtask/jeu. Le daemon
+avait été renouvelé au relevé final (compteurs vides, mode `ReadOnly` confirmé),
+donc aucun taux final n'est annoncé. La machine partage ses ressources avec
+d'autres travaux ; ces temps ne sont pas une prédiction de durée CI.
+
+Les quatre tests du frontal passent, ainsi qu'une invocation réelle vérifiant
+l'enregistrement d'un extern et l'exclusion d'un jeton de registre sentinelle.
+Le parseur PowerShell et la liste de messages autorisés du filtre passent.
+`nix flake check --all-systems --no-build` réussit ; actionlint ne retourne que
+le SC2016 préexistant de `nix-dev.yml:73`. Aucun push, déclenchement de workflow,
+changement d'infrastructure, publication de cache, GC Nix ou modification globale
+n'a été réalisé. Le clone de travail de l'utilisateur n'a pas été modifié.

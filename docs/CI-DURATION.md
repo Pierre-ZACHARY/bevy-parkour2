@@ -264,3 +264,114 @@ ont uniquement été lus via les deux liens symboliques ignorés autorisés dans
 ce worktree. Aucun push Git, déclenchement de workflow, changement d'infrastructure,
 publication OVH, GC Nix, changement de configuration globale ou écriture dans
 le clone principal n'a été effectué.
+
+## Enquête Windows du 9 novembre : éviction et clés Rust
+
+Comparaison en lecture seule des jobs de
+[42645303778](https://github.com/Pierre-ZACHARY/bevy-parkour2/actions/runs/42645303778)
+et [42696335380](https://github.com/Pierre-ZACHARY/bevy-parkour2/actions/runs/42696335380),
+tous deux sur **5e4e49b87b82ab52c18822e5958a1c065a453f48**. Les logs bruts
+ont été conservés localement dans `/tmp/sccache-study`, pas dans Git.
+
+| Job Windows, sans cache Cargo | Hits Rust | Misses Rust | Hits C/C++ / misses | Appels non cachables |
+| --- | ---: | ---: | ---: | ---: |
+| game (129429064939) | 458 | 75 | 52 / 0 | 134 |
+| tooling (129429064888) | 592 | 133 | 32 / 0 | 190 |
+| build (129429064871) | 623 | 97 | 52 / 0 | 156 |
+
+Chaque job indique `No cache found`, sccache 0.19.0, rustc 1.97.1
+(8bab26f4f), zéro erreur de lecture S3 et les mêmes bases Windows
+`d:/a/bevy-parkour2/bevy-parkour2/`, `c:/users/runneradmin/.cargo/`.
+Les C/C++ servis par cc-rs ne sont donc pas la source des misses observés.
+Les appels non cachables sont comptés séparément : respectivement 46/56/62
+proc-macros et 62/83/79 binaires, dont les build scripts. Leur coût subsiste
+même avec un cache OVH entièrement chaud.
+
+Avec le cache Cargo restauré, les mêmes groupes n'exécutent que 12/3/10
+requêtes cachables (toutes hits), contre 585/757/772 sans restauration.
+Comparer ces pourcentages ne permet pas d'identifier les crates qui manquent
+lors d'une reconstruction complète. Les logs actuels n'associent pas les
+75/133/97 misses à des crates ou à des clés. **La cause précise de ces misses
+Windows reste à établir**, sans normalisation spéculative des variables.
+
+Le code upstream fournit des pistes vérifiables :
+[sccache Rust 0.19](https://github.com/mozilla/sccache/blob/v0.19.0/src/compiler/rust.rs)
+hache les fichiers sources, le contenu des `--extern` (donc aussi les DLL de
+proc-macros), les bibliothèques natives, les arguments filtrés, les dépendances
+d'environnement rustc, les variables `CARGO_*` sauf exceptions explicites, le
+cwd et le compilateur. Une DLL MSVC régénérée avec un contenu différent peut
+invalider les crates consommatrices, puis leurs dépendants : **hypothèse**, pas
+preuve de timestamps/PDB/GUID non déterministes. Un build script générant un
+contenu différent produit aussi ce résultat. Changer seulement les bases ne
+corrige pas ces différences.
+
+### Diagnostic au prochain run Windows
+
+Les jobs tests/build activent des modules debug sccache ciblés. Les artifacts
+existants contiennent `.compiler-cache/diagnostics/` pendant sept jours :
+
+- `sccache.log` : uniquement nom d'unité, clé et hit/miss/résultat ; le log debug
+  brut n'est jamais téléversé. Pas de trace HTTP/S3 ni de dump d'environnement.
+- `inputs-<pid>.txt` : compilateur, cwd, arguments, empreintes des valeurs
+  `CARGO_*`/`OUT_DIR` et du contenu de chaque `--extern`. Les variables de registre
+  Cargo sont exclues. Ces empreintes Rust servent à comparer deux exécutions
+  de la même toolchain, pas à authentifier des fichiers.
+- `generated-inputs.txt` : SHA256 des sources générées, archives natives et
+  sorties de build scripts sous `target/**/build/`, sans leur contenu.
+
+Comparer **deux reconstructions sans target préservé**, même commit/toolchain/
+profil/features ; une CI restaurée par Cargo ne repasse pas dans le compilateur
+et ne produit pas la même couverture diagnostique. Aucun cache n'est effacé
+automatiquement. Depuis `sccache.log`, chercher les unités en miss, retrouver
+leur `--crate-name` et `-C extra-filename` dans les fichiers inputs, puis :
+
+1. Comparer compilateur/cwd/arguments et les empreintes d'environnement par nom.
+   Exclure `CARGO_MAKEFLAGS`, ignoré par sccache ; `CARGO_TARGET_DIR`, lui, compte.
+2. Si ces entrées correspondent, chercher le premier `extern` différent ; une
+   DLL de proc-macro différente oriente vers MSVC/édition de liens, un rlib vers
+   ses propres entrées. Ne pas supprimer ces fichiers du calcul de clé.
+3. Comparer les SHA256 sous `build/` pour les sources/archives générées. Si tout
+   correspond, il reste les env-deps rustc et sources non générées ; reproduire
+   seulement l'unité suspecte, puis ajouter une trace ciblée pour celle-ci.
+
+L'instrumentation ajoute de la lecture disque des externs et des petits fichiers
+par invocation. Son coût doit être mesuré puis elle doit être retirée après
+identification. Les compilations contournant sccache pour la limite de longueur
+Windows restent identifiables dans le log Cargo, sans clé sccache.
+
+### Budget Cargo GitHub et options
+
+L'API caches au moment de cette enquête retourne 11,73 Go décimaux : Windows
+**6,15 Go** (game 1,897 ; tooling 2,215 ; build 2,033), Cargo Nix **5,59 Go**
+(Linux x64 2,731 ; macOS ARM 2,856). C'est un instantané pendant les évictions,
+pas une taille durable garantie. Le quota de 10 Go ne peut pas retenir cet
+ensemble : dépassement d'environ **1,73 Go**, avant nouvelles clés/branches.
+
+Le workflow limite désormais la sauvegarde Windows à `main`. Les PR/tags/autres
+branches peuvent restaurer le cache de la branche par défaut, sans créer leur
+propre copie. Gain sur les trois entrées `main` : **0 Go** ; jusqu'à **6,15 Go
+par copie complète de branche évitée**, aux tailles observées. Cela ne suffit
+pas à résoudre le dépassement de l'inventaire `main`.
+
+Options à mesurer après le diagnostic, sans suppression effectuée ici :
+
+- Réserver les caches target GitHub à Windows, et ne conserver que les sources/
+  outils Cargo sur les Nix writers : au plus 5,59 Go de renouvellement évité,
+  moins la taille des sources/outils conservés. Budget Windows restant 6,15 Go,
+  donc environ 3,85 Go pour ces sources et le reste. Linux/macOS ont déjà des
+  hits sccache complets ; proc-macros/liens restent néanmoins à reconstruire.
+- Un cache commun aux deux groupes de tests Windows remplace 4,11 Go par une
+  union de dépendances. Borne théorique du gain : **0 à 1,90 Go**, selon leur
+  intersection et la compression, à mesurer. Un simple `shared-key` ne construit
+  pas l'union : les caches sont immuables et seul le premier writer gagne.
+  Il faut un producteur compilant les deux groupes et deux consommateurs ;
+  cela ajoute une dépendance et peut rallonger le chemin critique. Les profils
+  release/ci et le CRT statique du build justifient de garder build séparé.
+- `cache-targets: false` sur Windows économiserait une partie des 6,15 Go mais
+  remettrait précisément les builds à 33–47 minutes aujourd'hui. Ne pas
+  l'activer avant d'avoir expliqué et corrigé les misses Rust.
+
+Aucun gain de compilation n'est attribué à l'instrumentation elle-même. Le
+budget à récupérer, si une correction rend les reconstructions indépendantes
+de l'éviction, est l'écart observé de **20 à 43 minutes par job** ; les appels
+non cachables et les liens empêchent de promettre les 4–13 minutes restaurées.
